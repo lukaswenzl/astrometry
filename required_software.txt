@@ -1,0 +1,7 @@
+python3 with the following special packages
+
+pandas
+astroquery
+Astropy (had to update, need at least 2.0, best even more recent)
+photutils (needs a c compiler, not clear if that is  problem)
+argparse (for arguments, was preinstalled for me)

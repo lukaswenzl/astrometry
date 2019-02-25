@@ -1,3 +1,6 @@
+sample_images/**
+!sample_images/sample_file.fits
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
