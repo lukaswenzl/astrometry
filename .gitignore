@@ -1,6 +1,9 @@
 sample_images/**
 !sample_images/sample_file.fits
 
+testing/
+eduardo_test_files/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -105,3 +108,5 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+

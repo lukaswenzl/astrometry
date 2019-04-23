@@ -38,13 +38,15 @@ Without installing you have to be in the cloned git folder and then you can run
 python astrometry.py sample_images/PSO016m06_K.fits
 ```
 
-This will perform an astrometric calibration on the sample file. The result will be stored as <filename>_astro.fits. 
+This will perform an astrometric calibration on the sample file. The result will be stored as FILENAME_astro.fits. 
 
 If you install the package you can use it anywhere like this:
 
 ```
 astrometry sample_images/PSO016m06_K.fits
 ```
+
+This installation of the package also takes care of the required packages.
 
 
 ## Further options
