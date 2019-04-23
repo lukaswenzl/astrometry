@@ -146,14 +146,15 @@ def write_wcs_to_hdr(original_filename, wcsprm):
 def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None):
     fov_radius = 4 #arcmin radius to include field of view
     INCREASE_FOV_FLAG = False # increase the field to view by 50% to search in catalog if position on sky is inaccurate
+    PIXSCALE_UNCLEAR = False
 
     keywords_check = ["PIXSCALE", "NAXIS1", "NAXIS2", "RA", "DEC"] #list of possible keywords the scs parser might miss
     keywords_present = [] # list of keywords that are actually present
     for i in keywords_check:
         if(i in hdr.keys()):
             keywords_present.append(i)
-    print("Additional keywords found by header:")
-    print(keywords_present)
+    # print("Additional keywords found by header:")
+    # print(keywords_present)
 
     if("NAXIS1" not in keywords_present or "NAXIS2" not in keywords_present ):
         print("ERROR: NAXIS1 or NAXIS2 missing in file. Please add!")
@@ -161,6 +162,19 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None)
         axis1 = hdr["NAXIS1"]
         axis2 = hdr["NAXIS2"]
     #if(wcsprm.isunity()):
+
+    pc = wcsprm.get_pc()
+    cdelt = wcsprm.get_cdelt()
+    wcs_pixscale = (pc @ cdelt )
+    if((np.abs(wcs_pixscale[0])) < 1e-7 or (np.abs(wcs_pixscale[1])) < 1e-7 or
+        (np.abs(wcs_pixscale[0])) > 5e-3 or (np.abs(wcs_pixscale[1])) > 5e-3):
+        print("pixelscale is completely unrealistic. Will guess")
+        print(wcs_pixscale)
+        guess = 8.43785734e-05
+        wcsprm.pc = [[1,0],[0,1]]
+        wcsprm.cdelt = [guess, guess]
+        print("Changed pixelscale to {:.3g} deg/arcsec".format(guess))
+        PIXSCALE_UNCLEAR = True
     if("PIXSCALE" in keywords_present):
         #normal around 0.450000 / arcsec/pixel, for now i assume arcsec per pixel
         pixscale = hdr["PIXSCALE"]
@@ -184,6 +198,7 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None)
                 wcsprm.cdelt = [pixscale, pixscale]
                 print("changed pixelscale to {:.3g} deg/arcsec".format(pixscale))
                 fov_radius = (x_size/2+y_size/2)/np.sqrt(2) #try to get corners
+                PIXSCALE_UNCLEAR=True
 
 
     if(np.array_equal(wcsprm.crpix, [0,0])):
@@ -194,11 +209,18 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None)
         INCREASE_FOV_FLAG = True
         if ("RA" in keywords_present and "DEC" in keywords_present): ##carefull degree and hourangle!!!
             wcsprm.crval = [hdr["RA"], hdr["DEC"]]
+            print("Found ra and dec information in the header")
+            print(wcsprm.crval)
+            print("Is this position within the field of view in degrees? otherwise it will not work. In that case give a more accurate position as an argument: -ra XX -dec XX both in degrees")
 
     if (RA_input is not None): #use user input if provided
         wcsprm.crval = [RA_input, wcsprm.crval[1]]
     if (DEC_input is not None):
         wcsprm.crval = [wcsprm.crval[0], DEC_input]
+
+    if(np.array_equal(wcsprm.crval, [0,0] )):
+        print(">>>>>>>>>WARNING")
+        print("No rough sky position was found for this object. Please add as -ra XX -dex XX both in degress. Adding the position as keywords in the fits file header will also work. The keywords are RA and DEC. The program expects the values in degrees. ")
     #wcsprm.crval = [172.3556987, 18.77342494] #deg  , deg
     #wcsprm.pc = [[-1,0],[0,1]]
     #wcsprm.crpix = [wcsprm.crpix[0]+22, wcsprm.crpix[1]+70]
@@ -208,8 +230,8 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None)
         wcsprm.ctype = [ 'RA---TAN',  'DEC--TAN'] #this is a guess
 
     if(INCREASE_FOV_FLAG):
-        fov_radius = fov_radius*1.5
-    return wcsprm, fov_radius, INCREASE_FOV_FLAG
+        fov_radius = fov_radius*2.5
+    return wcsprm, fov_radius, INCREASE_FOV_FLAG, PIXSCALE_UNCLEAR
 
 
 
@@ -236,6 +258,9 @@ def parseArguments():
 
     parser.add_argument("-s", "--save_images", help="Set True to create _image_before.pdf and _image_after.pdf", type=bool, default=False)
     parser.add_argument("-p", "--show_images", help="Set False to not have the plots pop up.", type=bool, default=True)
+
+    parser.add_argument("-v", "--verbose", help="More console output about what is happening. Helpfull for debugging.", type=bool, default=False)
+
 
     parser.add_argument("-w", "--ignore_warnings", help="Set False to see all Warnings about the header if there is problems. Default is to ignore most warnings.", type=bool, default=True)
 
@@ -305,14 +330,13 @@ def main():
 
     for fits_image_filename in fits_image_filenames:
         print("")
-        print("--------------------------------------------------------------------------------------")
-        print("---- Astrometry for {} ----".format(fits_image_filename))
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+        print("> Astrometry for {} ".format(fits_image_filename))
 
-        #header_keywords = [""]
         with fits.open(fits_image_filename) as hdul:
             #print(hdul.info())
-            #print("if image is not at 0 the program will break later on")
-
+            if(args.verbose):
+                print("if image is not at first position in the fits file the program will break later on")
             #print(hdul[0].header)
 
             hdu = hdul[0]
@@ -320,9 +344,7 @@ def main():
             hdr = hdu.header
 
 
-            image_or = hdul[0].data.astype(float)  #hdu.data[500:700, 500:700].astype(float)
-            # plt.imshow(image)
-            # plt.show()
+            image_or = hdul[0].data.astype(float)
             image = image_or - np.median(image_or)
 
         #pixel scale by hand for testing
@@ -334,8 +356,6 @@ def main():
         # hdr["PC2_2"] =0.98006658
 
 
-
-
         observation = find_sources(image)
         #print(observation)
 
@@ -345,7 +365,7 @@ def main():
 
         #world coordinates
         #wcs = WCS(hdr)
-        print("--- Info found in the file -- (CRVAl: position of central pixel (CRPIX) on the sky)")
+        print(">Info found in the file -- (CRVAl: position of central pixel (CRPIX) on the sky)")
         print(WCS(hdr))
         #print(wcs)
         #
@@ -355,9 +375,10 @@ def main():
 
         #header = hdr)
         wcsprm = Wcsprm(hdr.tostring().encode('utf-8')) #everything else gave me errors with python 3
-        print(wcsprm.get_pc())
-        wcsprm, fov_radius, INCREASE_FOV_FLAG = read_additional_info_from_header(wcsprm, hdr, args.ra, args.dec)
-        print(WCS(wcsprm.to_header()))
+        #print(wcsprm.get_pc())
+        wcsprm, fov_radius, INCREASE_FOV_FLAG, PIXSCALE_UNCLEAR = read_additional_info_from_header(wcsprm, hdr, args.ra, args.dec)
+        if(args.verbose):
+            print(WCS(wcsprm.to_header()))
         #wcsprm.pc = [[2, 0],[0,1]]
 
         #print(wcsprm.set())
@@ -405,13 +426,10 @@ def main():
         #coord = SkyCoord(hdr["RA"], hdr["DEC"], unit=(u.hourangle, u.deg), frame="icrs")
         coord = SkyCoord(wcsprm.crval[0], wcsprm.crval[1], unit=(u.deg, u.deg), frame="icrs")
 
-        #print(coord)
-
 
         #put in nice wrapper! with repeated tries and maybe try synchron!
-        print("--- Dowloading catalog data -- ")
+        print(">Dowloading catalog data")
         radius = u.Quantity(fov_radius, u.arcmin)#will prob need more
-        print("change RADIUS back")
         catalog_data = query.get_data(coord, radius, args.catalog)
         #reference = reference.query("mag <20")
         max_sources = 500
@@ -463,16 +481,28 @@ def main():
 
         ###tranforming to match the sources
         print("---------------------------------")
-        print("--- Finding the tranformation -- ")
-        ###
-        wcsprm = register.get_scaling_and_rotation(observation, catalog_data, wcsprm)
-        wcsprm,_,_ = register.offset_with_orientation(observation, catalog_data, wcsprm, fast=True, INCREASE_FOV_FLAG=INCREASE_FOV_FLAG)
+        print(">Finding the transformation")
+        print("Finding scaling and rotation")
+        wcsprm = register.get_scaling_and_rotation(observation, catalog_data, wcsprm, scale_guessed=PIXSCALE_UNCLEAR, verbose=args.verbose)
+        print("Finding offset")
+        wcsprm,_,_ = register.offset_with_orientation(observation, catalog_data, wcsprm, fast=False , INCREASE_FOV_FLAG=INCREASE_FOV_FLAG, verbose= args.verbose)
         #wcs,_,_ = register.simple_offset(observation, catalog_data, wcs)
         #register.general_transformation(observation, catalog_data, wcs)
 
         #correct subpixel error
-        register.calculate_rms(observation, catalog_data,wcsprm)
-        wcsprm = register.fine_transformation(observation, catalog_data, wcsprm)
+        #register.calculate_rms(observation, catalog_data,wcsprm)
+        obs_x, obs_y, cat_x, cat_y, distances = register.find_matches(observation, catalog_data, wcsprm, threshold=3)
+        rms = np.sqrt(np.mean(np.square(distances)))
+        best_score = len(obs_x)/(rms+1) #start with current best score
+        fine_transformation = False
+        for i in [0.5, 1, 2,3,5,8]:
+            wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i)
+            if(score> best_score):
+                wcsprm = wcsprm_new
+                best_score = score
+                fine_transformation = True
+        if not fine_transformation:
+            print("Fine transformation did not imporve result so will be discarded.")
         #register.calculate_rms(observation, catalog_data,wcs)
 
 

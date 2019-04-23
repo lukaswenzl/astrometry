@@ -167,12 +167,16 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
         catalog = catalog.nsmallest(N_CATALOG, 'mag')
     if(verbose):
         #print("--------------------------------------")
-        print("offset_with_orientation, seaching for offset while considering reflections and 0,90,180,270 rotations")
+        #print("offset_with_orientation, seaching for offset while considering reflections and 0,90,180,270 rotations")
+        print("offset_with_orientation, seaching for offset while considering 0,90,180,270 rotations")
         if(fast):
             print("running in fast mode")
+    # rotations = [ [[1,0],[0,1]], [[-1,0],[0,-1]],
+    #               [[-1,0],[0,1]], [[1,0],[0,-1]],
+    #               [[0,1],[1,0]], [[0,-1],[-1,0]],
+    #               [[0,-1],[1,0]], [[0,1],[-1,0]],
+    #             ]
     rotations = [ [[1,0],[0,1]], [[-1,0],[0,-1]],
-                  [[-1,0],[0,1]], [[1,0],[0,-1]],
-                  [[0,1],[1,0]], [[0,-1],[-1,0]],
                   [[0,-1],[1,0]], [[0,1],[-1,0]],
                 ]
     wcsprm_global = copy.copy(wcsprm)
@@ -198,20 +202,21 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
     report = report + "A total of {} sources from the fits file where used. \n".format(N_SOURCES)
     report = report + "The signal (#stars) is {} times higher than noise outlierers for other directions. (more than 2 would be nice, typical: 8 for PS)\n".format(signals[i]/median)
 
-    if(fast & (signals[i] < N_SOURCES * s.FASTMODE_THRESHOLD)):
-        print("Not enough sources were matched. trying again without fast mode ")
-        #wcsprm_global.pc = [[1,0],[0,1]] #if file was wrongly rotated by hand
-        #print(str())
-        pc = wcsprm_global.get_pc()
-        # if any( [np.array_equal(pc, i) for i in rotations]):
-        #     print("...and reseting rotation")
-        #     wcsprm_global.pc = [[1,0],[0,1]]
-        report_global = report_global + "Turned fast mode off because not enough sources were detected"
-        wcsprm_new, signal_new, report_new = offset_with_orientation(observation_all, catalog, wcsprm_global, report_global=report_global, verbose=False)
-        if(signal_new > signal*2): #only accept if better
-            wcsprm = wcsprm_new
-            report = report_new
-            signal = signal_new
+    # if(fast & (signals[i] < N_SOURCES * s.FASTMODE_THRESHOLD)):
+    #     if(verbose):
+    #         print("Not enough sources were matched. trying again without fast mode ")
+    #     #wcsprm_global.pc = [[1,0],[0,1]] #if file was wrongly rotated by hand
+    #     #print(str())
+    #     pc = wcsprm_global.get_pc()
+    #     # if any( [np.array_equal(pc, i) for i in rotations]):
+    #     #     print("...and reseting rotation")
+    #     #     wcsprm_global.pc = [[1,0],[0,1]]
+    #     report_global = report_global + "Turned fast mode off because not enough sources were detected"
+    #     wcsprm_new, signal_new, report_new = offset_with_orientation(observation_all, catalog, wcsprm_global, report_global=report_global, verbose=False)
+    #     if(signal_new > signal*2): #only accept if better
+    #         wcsprm = wcsprm_new
+    #         report = report_new
+    #         signal = signal_new
 
     if(verbose):
         print("We found the following world coordinates: ")
@@ -219,6 +224,8 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
         print("And here is the report:")
         print(report)
         print("-----------------------------")
+    off = wcsprm.crpix - wcsprm_global.crpix
+    print("Found offset {:.3g} in x direction and {:.3g} in y direction".format(off[0], off[1]))
 
     return wcsprm, signal, report
 
@@ -277,7 +284,7 @@ def calculate_dist(data_x, data_y):
 
 
 def calculate_log_dist(data_x, data_y):
-    log_distances = np.log(calculate_dist(data_x, data_y))
+    log_distances = np.log(calculate_dist(data_x, data_y)+np.finfo(float).eps)
     return log_distances
 
 def calculate_angles(data_x, data_y):
@@ -383,14 +390,12 @@ def peak_with_cross_correlation(log_distance_obs, angle_obs, log_distance_cat, a
         #broader distance range if the scale is just a guess so there is a higher chance to find the correct one
         minimum_distance = min([min(log_distance_cat), min(log_distance_obs)])
         maximum_distance = max([max(log_distance_cat), max(log_distance_obs)])
-    print("distance range")
-    # print(minimum_distance)
-    # print(maximum_distance)
+
     bins_dist, binwidth_dist = np.linspace(minimum_distance, maximum_distance, 3000, retstep=True)
-    print(binwidth_dist)
-    print(np.e**(binwidth_dist))
+    # print(binwidth_dist)
+    # print(np.e**(binwidth_dist))
     bins_ang, binwidth_ang = np.linspace(min([min(angle_cat), min(angle_obs)]), max([max(angle_cat),max(angle_obs)]), 360*3, retstep=True)
-    print(binwidth_ang/2/np.pi*360)
+    #print(binwidth_ang/2/np.pi*360)
     bins = [bins_dist, bins_ang]#min max of both
     H_obs, x_edges_obs, y_edges_obs = np.histogram2d(log_distance_obs, angle_obs, bins=bins)
     H_cat, x_edges_cat, y_edges_cat = np.histogram2d(log_distance_cat,angle_cat, bins=bins)
@@ -400,7 +405,7 @@ def peak_with_cross_correlation(log_distance_obs, angle_obs, log_distance_cat, a
     H_cat = (H_cat- np.mean(H_cat))/ np.std(H_cat)
 
     ff_obs = cross_corr_to_fourier_space(H_obs)
-    ff_cat = cross_corr_to_fourier_space(H_cat)##these do not have the same size
+    ff_cat = cross_corr_to_fourier_space(H_cat)
 
 
     cross_corr = ff_obs*np.conj(ff_cat)
@@ -409,8 +414,6 @@ def peak_with_cross_correlation(log_distance_obs, angle_obs, log_distance_cat, a
     step = 1 # maybe in arcsec??, this is usually the timestep to get a frequency
     frequ = np.fft.fftfreq(ff_obs.size, d=step).reshape(ff_obs.shape)
     max_frequ = np.max(frequ)#frequ are symmatric - to +
-    # print(max_frequ)
-    # print(np.min(frequ))
     threshold = 0.02* max_frequ #todo make threshold changable
     #print(threshold)
     cross_corr[(frequ<threshold)&(frequ>-threshold)] = 0 ##how to choose the frequency cut off?
@@ -420,38 +423,32 @@ def peak_with_cross_correlation(log_distance_obs, angle_obs, log_distance_cat, a
     cross_corr = np.fft.fftshift(cross_corr) #zero shift is at (0,0), this move it to the middle
 
 
-
-
-    #define peak better: todo: take weighted average of the cetral like 9 pixel, so i get sub pixel accuracy
-
     peak = np.argwhere(cross_corr == cross_corr.max())[0] #take fisrt peak
 
-    #if(peak[0]>0 and peak[1]>0 and ) complicated!!
     around_peak = cross_corr[peak[0]-1:peak[0]+2, peak[1]-1:peak[1]+2]
 
     #finding the sub pixel shift of the true peak
-    print("sub pixel offset: not checked if correct")
-    print(peak)
-    print(np.sum(np.sum(around_peak, axis=1)*(np.arange(around_peak.shape[0])+1))/np.sum(around_peak)-2)#should be peak[0]
-    print(np.sum(np.sum(around_peak, axis=0)*(np.arange(around_peak.shape[1])+1))/np.sum(around_peak)-2)#should be peak[1]
+    # print("sub pixel offset:")
+    # print(peak)
+    # print(np.sum(np.sum(around_peak, axis=1)*(np.arange(around_peak.shape[0])+1))/np.sum(around_peak)-2)#should be peak[0]
+    # print(np.sum(np.sum(around_peak, axis=0)*(np.arange(around_peak.shape[1])+1))/np.sum(around_peak)-2)#should be peak[1]
     peak_x_subpixel = np.sum(np.sum(around_peak, axis=1)*(np.arange(around_peak.shape[0])+1))/np.sum(around_peak)-2#should be peak[0] offset
     peak_y_subpixel = np.sum(np.sum(around_peak, axis=0)*(np.arange(around_peak.shape[1])+1))/np.sum(around_peak)-2#should be peak[1] offset
 
     signal = np.sum(cross_corr[peak[0]-1:peak[0]+2, peak[1]-1:peak[1]+2])   #sum up signal in fixed aperture 1 pixel in each direction around the peak, so a 3x3 array, total 9 pixel
-    signal_wide = np.sum(cross_corr[peak[0]-4:peak[0]+5, peak[1]-4:peak[1]+5])
+    #signal_wide = np.sum(cross_corr[peak[0]-4:peak[0]+5, peak[1]-4:peak[1]+5])
     # #report = report+"signal wide (64pixel) - signal (9pixel)  = {}. If this value is large then there might be rotation or scaling issues. \n".format(signal_wide-signal)
     # #aperture = 9 #pixel
     # ##signal wide: 64 pixel total
     # # print(signal, signal_wide)
-    print(cross_corr.shape)
     middle_x = cross_corr.shape[0]/2#is that corroct? yes I think so, shape is uneven number and index counting starts at 0
     middle_y = cross_corr.shape[1]/2
 
     x_shift = (peak[0]+peak_x_subpixel-middle_x)*binwidth_dist
     y_shift = (peak[1]+peak_y_subpixel-middle_y)*binwidth_ang
 
-    print(np.e**(-x_shift))
-    print(y_shift/2/np.pi*360)
+    # print(np.e**(-x_shift))
+    # print(y_shift/2/np.pi*360)
 
     scaling= np.e**(-x_shift)
     rotation = y_shift#/2/np.pi*360 maybe easier in rad
@@ -471,7 +468,7 @@ def scale(wcsprm, scale_factor):
     return wcsprm
 
 
-def get_scaling_and_rotation(observation, catalog, wcsprm, verbose=True, report_global={}): #INCREASE_FOV_FLAG=False
+def get_scaling_and_rotation(observation, catalog, wcsprm, scale_guessed, verbose=True, report_global={}): #INCREASE_FOV_FLAG=False
     """Calculate the scaling and rotation compared to the catalog based on the method of Kaiser et al. (1999).
 
     This should be quite similar to the approach by SCAMP.
@@ -493,12 +490,8 @@ def get_scaling_and_rotation(observation, catalog, wcsprm, verbose=True, report_
     wcs, signal, report
 
     """
-    #observation = observation.nlargest(30, 'aperture_sum') #TODO
-    #catalog = catalog.nsmallest(30, 'mag') #TODO
-
     catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)
     catalog_on_sensor  = catalog_on_sensor['pixcrd']
-    #catalog_on_sensor[:,1]
     obs_x = [observation["xcenter"].values]
     cat_x = np.array( [catalog_on_sensor[:,0] ])
     obs_y = [observation["ycenter"].values]
@@ -510,15 +503,9 @@ def get_scaling_and_rotation(observation, catalog, wcsprm, verbose=True, report_
     angles_obs = calculate_angles(obs_x,obs_y)
     angles_cat = calculate_angles(cat_x, cat_y)
 
-    # plt.figure()
-    # plt.scatter(log_distances_obs, angles_obs)
-    #
-    # plt.figure()
-    # plt.scatter(log_distances_cat, angles_cat)
 
-
-    scaling, rotation, signal = peak_with_cross_correlation(log_distances_obs, angles_obs, log_distances_cat, angles_cat)#(obs_x, obs_y, cat_x, cat_y)
-    scaling_reflected, rotation_reflected, signal_reflected =  peak_with_cross_correlation(log_distances_obs, -angles_obs, log_distances_cat, angles_cat)#(obs_x, obs_y, cat_x, cat_y)
+    scaling, rotation, signal = peak_with_cross_correlation(log_distances_obs, angles_obs, log_distances_cat, angles_cat, scale_guessed= scale_guessed)
+    scaling_reflected, rotation_reflected, signal_reflected =  peak_with_cross_correlation(log_distances_obs, -angles_obs, log_distances_cat, angles_cat, scale_guessed=scale_guessed)
 
     if(signal_reflected > signal):
         is_reflected = True
@@ -536,7 +523,14 @@ def get_scaling_and_rotation(observation, catalog, wcsprm, verbose=True, report_
 
     wcsprm_new = scale(wcsprm_new, scaling)
 
-    print(is_reflected, confidence, scaling, rotation)
+    if(is_reflected):
+        refl = ""
+    else:
+        refl = "not "
+    print("Found a rotation of {:.3g} deg and the pixelscale was scaled with the factor {:.3g}.".format(rotation/2/np.pi*360,scaling)+"The image was "+refl+"mirrored.")
+    if(verbose):
+        print("The confidence level is {}. values between 1 and 2 are bad. Much higher values are best.".format(confidence))
+        print("Note that there still might be a 180deg rotation. If this is the case it should be correct in the next step")
     #report_global["rotation"] +
 
     #scaling, rotation = peak_with_histogram(log_distances_obs, angles_obs, log_distances_cat, angles_cat)
@@ -558,52 +552,52 @@ def calculate_rms(observation, catalog, wcsprm):
     rms = np.sqrt(np.mean(np.square(distances)))
     print("Within 10 pixel {} sources where matched. The rms is {:.3g}".format(len(obs_x), rms))
 
-def calculate_rms_old(observation, catalog, wcsprm):
-    """Calculate the rms of the final transformation."""
-    #catalog_on_sensor = wcs.wcs_world2pix(catalog[["ra", "dec"]], 1)
-    catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)['pixcrd']
-
-
-    obs = [observation["xcenter"].values]
-    cat = np.array( [catalog_on_sensor[:,0] ])
-    distances_x =  (obs - cat.T)#.flatten()
-
-    obs = [observation["ycenter"].values]
-    cat = np.array( [catalog_on_sensor[:,1] ])
-    distances_y =  (obs - cat.T)#.flatten()
-
-    #find closest points to each source is observaion
-    distances = np.min(distances_x**2 + distances_y**2, axis=0)
-    #print(distances)
-    #indices for the 10 brightest sources
-
-    N_OBS = observation.shape[0]
-    rms = np.sqrt(np.mean(np.square(distances)))
-    print("rms {:.3g} for all {} sources detected. (likely high because not all will be in the catalog)".format(rms, N_OBS))
-    if(N_OBS > 50):
-        N_OBS = 50
-        ind = np.argpartition(observation["aperture_sum"].values, -N_OBS)[-N_OBS:]
-        rms = np.sqrt(np.mean(np.square(distances[ind])))
-        print("rms {:.3g} for the {} brightest sources detected. (likely high because not all will be in the catalog)".format(rms, N_OBS))
-    if(N_OBS > 10):
-        N_OBS = 10
-        ind = np.argpartition(observation["aperture_sum"].values, -N_OBS)[-N_OBS:]
-        rms = np.sqrt(np.mean(np.square(distances[ind])))
-        print("rms {:.3g} for the {} brightest sources detected".format(rms, N_OBS))
-
-    N_OBS = 50
-    if(len(distances) < 50):
-        N_OBS = len(distances)-1
-    closest = np.partition(distances, N_OBS)[:N_OBS]
-    rms = np.sqrt(np.mean(np.square(closest)))
-    print("rms {:.3g} for the {} closest sources detected. (If below one the tranforation likely worked)".format(rms, N_OBS))
-
-    if(N_OBS > 10):
-        N_OBS = 10
-    closest = np.partition(distances, N_OBS)[:N_OBS]
-    rms = np.sqrt(np.mean(np.square(closest)))
-    print("rms {:.3g} for the {} closest sources detected".format(rms, N_OBS))
-    print("-------------------")
+# def calculate_rms_old(observation, catalog, wcsprm):
+#     """Calculate the rms of the final transformation."""
+#     #catalog_on_sensor = wcs.wcs_world2pix(catalog[["ra", "dec"]], 1)
+#     catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)['pixcrd']
+#
+#
+#     obs = [observation["xcenter"].values]
+#     cat = np.array( [catalog_on_sensor[:,0] ])
+#     distances_x =  (obs - cat.T)#.flatten()
+#
+#     obs = [observation["ycenter"].values]
+#     cat = np.array( [catalog_on_sensor[:,1] ])
+#     distances_y =  (obs - cat.T)#.flatten()
+#
+#     #find closest points to each source is observaion
+#     distances = np.min(distances_x**2 + distances_y**2, axis=0)
+#     #print(distances)
+#     #indices for the 10 brightest sources
+#
+#     N_OBS = observation.shape[0]
+#     rms = np.sqrt(np.mean(np.square(distances)))
+#     print("rms {:.3g} for all {} sources detected. (likely high because not all will be in the catalog)".format(rms, N_OBS))
+#     if(N_OBS > 50):
+#         N_OBS = 50
+#         ind = np.argpartition(observation["aperture_sum"].values, -N_OBS)[-N_OBS:]
+#         rms = np.sqrt(np.mean(np.square(distances[ind])))
+#         print("rms {:.3g} for the {} brightest sources detected. (likely high because not all will be in the catalog)".format(rms, N_OBS))
+#     if(N_OBS > 10):
+#         N_OBS = 10
+#         ind = np.argpartition(observation["aperture_sum"].values, -N_OBS)[-N_OBS:]
+#         rms = np.sqrt(np.mean(np.square(distances[ind])))
+#         print("rms {:.3g} for the {} brightest sources detected".format(rms, N_OBS))
+#
+#     N_OBS = 50
+#     if(len(distances) < 50):
+#         N_OBS = len(distances)-1
+#     closest = np.partition(distances, N_OBS)[:N_OBS]
+#     rms = np.sqrt(np.mean(np.square(closest)))
+#     print("rms {:.3g} for the {} closest sources detected. (If below one the tranforation likely worked)".format(rms, N_OBS))
+#
+#     if(N_OBS > 10):
+#         N_OBS = 10
+#     closest = np.partition(distances, N_OBS)[:N_OBS]
+#     rms = np.sqrt(np.mean(np.square(closest)))
+#     print("rms {:.3g} for the {} closest sources detected".format(rms, N_OBS))
+#     print("-------------------")
 
 
 
@@ -636,42 +630,45 @@ def find_matches(observation, catalog, wcsprm, threshold=5):
     distances = distances[distances < threshold]
     return obs_x, obs_y, cat_x, cat_y, distances
 
-def fine_transformation(observation, catalog, wcsprm, verbose=True):
+def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True):
     wcsprm_original = wcsprm
     wcsprm = copy.copy(wcsprm)
 
-    obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=5)
+    obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=threshold)
     if(len(obs_x)<4):
-        print("fine transformation failed. Not enough matches")
-        return wcsprm_original
+        return wcsprm_original, 0 #not enough matches
     #seems to work
 
     #angle:
     angle_offset = -calculate_angles([obs_x],[obs_y])+calculate_angles([cat_x],[cat_y])
-    print("angle")
-    print(np.mean(angle_offset))
-    print(np.mean(angle_offset)/2/np.pi*360)
+    log_distances_obs = calculate_log_dist([obs_x],[obs_y])
+    log_distances_cat = calculate_log_dist([cat_x],[cat_y])
+    threshold = np.log(20) #minimum distance to make usefull scaling or angle estimation
+    mask = (log_distances_obs>threshold)&(log_distances_cat>threshold)
+    scale_offset = -log_distances_obs+log_distances_cat
+
+    #only take usefull datapoints
+    angle_offset = angle_offset[mask]
+    scale_offset = scale_offset[mask]
+
     rotation = np.mean(angle_offset)
-    print(np.std(angle_offset))
+    scaling = np.e**(np.mean(scale_offset))
 
     rot = rotation_matrix(rotation)
     wcsprm = rotate(wcsprm, rot)
-
-    scale_offset = -calculate_log_dist([obs_x],[obs_y])+calculate_log_dist([cat_x],[cat_y])
-    scaling = np.e**(np.mean(scale_offset))
-    print(scaling)
-    wcsprm = scale(wcsprm, scaling)
-
+    if (scaling > 0.9 and scaling < 1.1):
+        wcsprm = scale(wcsprm, scaling)
+    else:
+        #print("fine transformation failed. Scaling calculation failed")
+        return wcsprm_original,0
 
     #need to recalculate positions
     obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=5)
     if(len(obs_x)<4):
-        print("fine transformation failed. Not enough matches")
-        return wcsprm_original
+        #print("fine transformation failed. Not enough matches")
+        return wcsprm_original,0
 
     #offset:
-    print(np.mean(obs_x- cat_x))
-    print(np.mean(obs_y- cat_y))
     x_shift = np.mean(obs_x- cat_x)
     y_shift = np.mean(obs_y- cat_y)
 
@@ -679,7 +676,10 @@ def fine_transformation(observation, catalog, wcsprm, verbose=True):
     new_central_pixel = [current_central_pixel[0] + x_shift, current_central_pixel[1] +y_shift]
     wcsprm.crpix = new_central_pixel
 
-    return wcsprm
+    obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=3)
+    rms = np.sqrt(np.mean(np.square(distances)))
+    score = len(obs_x)/(rms+1) #number of matches within 3 pixel over rms+1 (so its bigger than 0)
+    return wcsprm, score
 
 
 
