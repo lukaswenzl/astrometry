@@ -13,7 +13,7 @@ from astropy.wcs import Wcsprm
 
 import matplotlib.pyplot as plt
 
-from scipy.signal import correlate2d
+#from scipy.signal import correlate2d
 
 
 import copy
