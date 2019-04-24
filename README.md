@@ -94,11 +94,11 @@ The full list of parameters can be accessed with astrometry --help
 
 Input:
 
-![Input read from file and loaded from online catalog](sample_files/sample_file_input.gif)
+![Input read from file and loaded from online catalog](sample_images/sample_file_input.gif)
 
 Result:
 
-![Result](sample_files/sample_file_result.gif)
+![Result](sample_images/sample_file_result.gif)
 
 ## Author
 
