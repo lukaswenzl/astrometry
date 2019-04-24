@@ -133,7 +133,7 @@ def rotate(wcsprm, rot):
     return wcsprm
 
 def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=False, report_global="", INCREASE_FOV_FLAG=False):
-    """Use simple_offset(...) but tries 0,90,180,270 rotation and reflections.
+    """Use simple_offset(...) but tries 0,90,180,270 rotation.
 
     Parameters
     ----------
@@ -542,15 +542,19 @@ def get_scaling_and_rotation(observation, catalog, wcsprm, scale_guessed, verbos
     return wcsprm_new
 
 def calculate_rms(observation, catalog, wcsprm):
+    #finding pixel scale
+    on_sky = wcsprm.p2s([[0,0],[1,1]], 0)["world"]
+    px_scale = np.sqrt((on_sky[0,0]-on_sky[1,0])**2+(on_sky[0,1]-on_sky[1,1])**2)
+    px_scale = px_scale*60*60 #in arcsec
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=3)
     rms = np.sqrt(np.mean(np.square(distances)))
-    print("Within 3 pixel {} sources where matched. The rms is {:.3g}".format(len(obs_x), rms))
+    print("Within 3  pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g}".format(px_scale*3, len(obs_x), rms))
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=5)
     rms = np.sqrt(np.mean(np.square(distances)))
-    print("Within 5 pixel {} sources where matched. The rms is {:.3g}".format(len(obs_x), rms))
+    print("Within 5  pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g}".format(px_scale*5,len(obs_x), rms))
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=10)
     rms = np.sqrt(np.mean(np.square(distances)))
-    print("Within 10 pixel {} sources where matched. The rms is {:.3g}".format(len(obs_x), rms))
+    print("Within 10 pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g}".format(px_scale*10,len(obs_x), rms))
 
 # def calculate_rms_old(observation, catalog, wcsprm):
 #     """Calculate the rms of the final transformation."""
@@ -630,6 +634,9 @@ def find_matches(observation, catalog, wcsprm, threshold=5):
     distances = distances[distances < threshold]
     return obs_x, obs_y, cat_x, cat_y, distances
 
+
+
+
 def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True):
     wcsprm_original = wcsprm
     wcsprm = copy.copy(wcsprm)
@@ -643,8 +650,12 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True)
     angle_offset = -calculate_angles([obs_x],[obs_y])+calculate_angles([cat_x],[cat_y])
     log_distances_obs = calculate_log_dist([obs_x],[obs_y])
     log_distances_cat = calculate_log_dist([cat_x],[cat_y])
-    threshold = np.log(20) #minimum distance to make usefull scaling or angle estimation
-    mask = (log_distances_obs>threshold)&(log_distances_cat>threshold)
+    threshold_min = np.log(20) #minimum distance to make usefull scaling or angle estimation
+    if(threshold == 10):
+        threshold_min = np.log(200)
+    if(threshold == 20):
+        threshold_min = np.log(250)
+    mask = (log_distances_obs>threshold_min)&(log_distances_cat>threshold_min)
     scale_offset = -log_distances_obs+log_distances_cat
 
     #only take usefull datapoints
@@ -663,9 +674,8 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True)
         return wcsprm_original,0
 
     #need to recalculate positions
-    obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=5)
+    obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=10)
     if(len(obs_x)<4):
-        #print("fine transformation failed. Not enough matches")
         return wcsprm_original,0
 
     #offset:
@@ -678,7 +688,7 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True)
 
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=3)
     rms = np.sqrt(np.mean(np.square(distances)))
-    score = len(obs_x)/(rms+1) #number of matches within 3 pixel over rms+1 (so its bigger than 0)
+    score = len(obs_x)/(rms+10) #number of matches within 3 pixel over rms+1 (so its bigger than 0)
     return wcsprm, score
 
 

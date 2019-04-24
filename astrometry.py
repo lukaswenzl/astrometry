@@ -504,9 +504,9 @@ def main():
         #register.calculate_rms(observation, catalog_data,wcsprm)
         obs_x, obs_y, cat_x, cat_y, distances = register.find_matches(observation, catalog_data, wcsprm, threshold=3)
         rms = np.sqrt(np.mean(np.square(distances)))
-        best_score = len(obs_x)/(rms+1) #start with current best score
+        best_score = len(obs_x)/(rms+10) #start with current best score
         fine_transformation = False
-        for i in [2,3,5,8,10,6,4,2,1,0.5]:
+        for i in [2,3,5,8,10,6,4, 20,2,1,0.5]:
             wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i)
             if(score> best_score):
                 wcsprm = wcsprm_new
@@ -514,6 +514,8 @@ def main():
                 fine_transformation = True
         if not fine_transformation:
             print("Fine transformation did not imporve result so will be discarded.")
+        else:
+            print("Fine transformation applied to improve result")
         #register.calculate_rms(observation, catalog_data,wcs)
 
 
