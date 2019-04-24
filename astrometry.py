@@ -143,7 +143,7 @@ def write_wcs_to_hdr(original_filename, wcsprm):
 
 
 
-def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None):
+def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None, projection_ra=None, projection_dec=None):
     fov_radius = 4 #arcmin radius to include field of view
     INCREASE_FOV_FLAG = False # increase the field to view by 50% to search in catalog if position on sky is inaccurate
     PIXSCALE_UNCLEAR = False
@@ -227,8 +227,14 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None)
     #
     if(np.array_equal(wcsprm.ctype, ["",""])):
         INCREASE_FOV_FLAG = True
-        wcsprm.ctype = [ 'RA---TAN',  'DEC--TAN'] #this is a guess
-
+        if(projection_ra is not None and projection_dec is not None):
+            wcsprm.ctype = [ projection_ra,  projection_dec]
+            print("reached")
+        else:
+            wcsprm.ctype = [ 'RA---TAN',  'DEC--TAN'] #this is a guess
+            print(">>>>>>>>>WARNING")
+            print("The wcs in the header has no projection specified. Will guess 'RA---TAN', 'DEC--TAN' (gnomonic projection) if this is incorrect the fit will fail. You can specify the projection via -projection_ra XX -projection_dec XX")
+            print("make sure you do not use quotations, example: -proj1 RA---TAN -proj2 DEC--TAN")
     if(INCREASE_FOV_FLAG):
         fov_radius = fov_radius*2.5
     return wcsprm, fov_radius, INCREASE_FOV_FLAG, PIXSCALE_UNCLEAR
@@ -266,6 +272,11 @@ def parseArguments():
 
     parser.add_argument("-ra", "--ra", help="Set ra by hand in degrees. Should not be necessary if the info is in the fits header.", type=float, default=None)
     parser.add_argument("-dec", "--dec", help="Set ra by hand in degrees. Should not be necessary if the info is in the fits header.", type=float, default=None)
+
+    parser.add_argument("-proj1", "--projection_ra", help="Set the projection by hand. Should not be necessary if the info is in the fits header. example: -proj1 RA---TAN -proj2 DEC--TAN", type=str, default=None)
+    parser.add_argument("-proj2", "--projection_dec", help="Set the projection by hand. Should not be necessary if the info is in the fits header. example: -proj1 RA---TAN -proj2 DEC--TAN", type=str, default=None)
+
+
 
 
 
@@ -376,7 +387,7 @@ def main():
         #header = hdr)
         wcsprm = Wcsprm(hdr.tostring().encode('utf-8')) #everything else gave me errors with python 3
         #print(wcsprm.get_pc())
-        wcsprm, fov_radius, INCREASE_FOV_FLAG, PIXSCALE_UNCLEAR = read_additional_info_from_header(wcsprm, hdr, args.ra, args.dec)
+        wcsprm, fov_radius, INCREASE_FOV_FLAG, PIXSCALE_UNCLEAR = read_additional_info_from_header(wcsprm, hdr, args.ra, args.dec, args.projection_ra, args.projection_dec)
         if(args.verbose):
             print(WCS(wcsprm.to_header()))
         #wcsprm.pc = [[2, 0],[0,1]]
@@ -495,7 +506,7 @@ def main():
         rms = np.sqrt(np.mean(np.square(distances)))
         best_score = len(obs_x)/(rms+1) #start with current best score
         fine_transformation = False
-        for i in [0.5, 1, 2,3,5,8]:
+        for i in [2,3,5,8,10,6,4,2,1,0.5]:
             wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i)
             if(score> best_score):
                 wcsprm = wcsprm_new
