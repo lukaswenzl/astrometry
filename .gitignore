@@ -2,6 +2,9 @@ sample_images/**
 !sample_images/sample_file.fits
 !sample_images/sample_file_input.gif
 !sample_images/sample_file_result.gif
+!sample_images/AS19_H_astro_ra132.8320833dec11.8697222.pdf
+!sample_images/AS19_H_astro.fits
+!sample_images/AS19_H.fits
 
 testing/
 eduardo_test_files/

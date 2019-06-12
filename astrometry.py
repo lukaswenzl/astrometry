@@ -524,6 +524,29 @@ def main():
                 print("Fine transformation applied to improve result")
         #register.calculate_rms(observation, catalog_data,wcs)
 
+        #make wcsprim more physical by moving scaling to
+        wcs =WCS(wcsprm.to_header())
+        if(args.verbose):
+            print(wcs)
+
+        from astropy.wcs import utils
+        scales = utils.proj_plane_pixel_scales(wcs)
+        cdelt = wcsprm.get_cdelt()
+        scale_ratio = scales/cdelt
+        #print(scale_ratio)
+        pc = np.array(wcsprm.get_pc())
+        pc[0,0] = pc[0,0]/scale_ratio[0]
+        pc[1,0] = pc[1,0]/scale_ratio[0]
+        pc[0,1] = pc[0,1]/scale_ratio[1]
+        pc[1,1] = pc[1,1]/scale_ratio[1]
+        wcsprm.pc = pc
+        wcsprm.cdelt = scales
+        if(args.verbose):
+            print("moved scaling info to CDelt")
+            print(WCS(wcsprm.to_header()))
+
+
+
 
         #check final figure
         fig = plt.figure()
