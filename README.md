@@ -124,6 +124,8 @@ The result is a pdf image. It shows a cutout of the target. Above is specified i
 
 ![Result of photometry extraction](sample_images/AS19_photometry_result.png)
 
+The literature values is 12.363+-0.01 mag for this source. Therefore the systematics from the calibration have to be considered for the error, but overall the result is consitent with the literature.
+
 
 
 
