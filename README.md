@@ -81,7 +81,7 @@ If the header is missing a rough position you can directly input the position as
 astrometry sample_images/sample_file.fits -ra 16.65733  -dec 3.54336
 ```
 
-If the header is missing the projection you can specify it directly as follows. Note that None is found it assumes genomic projection (TAN). If this is incorrect the fit will fail. Also do NOT put the RA---TAN within quotation marks.
+If the header is missing the projection you can specify it directly as follows. Note that if None is found it assumes genomic projection (TAN). If this is incorrect the fit will fail. Also do NOT put the RA---TAN within quotation marks.
 
 ```
 astrometry sample_images/sample_file.fits -proj1 RA---TAN -proj2 DEC--TAN
