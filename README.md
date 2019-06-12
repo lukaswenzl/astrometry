@@ -5,6 +5,8 @@ Simple python3 tool to quickly correct the rough astrometry given by a telescope
 general notes: If already present in the header wcs (World Coordinate System) information is used. If not the wcs is build from scratch. If not specified genomic projection is assumed.
 
 The resulting wcs is saved to the fits header and the data is saved as a new file <filename>_astro.fits.
+  
+The package also includes a quick photometry tool.
 
 
 
@@ -99,6 +101,29 @@ Input:
 Result:
 
 ![Result](sample_images/sample_file_result.gif)
+
+## Photometry tool
+
+The package also includes a quick tool to perform photometry for a specific source in the image. After astrometry calibration the position of the targeted object can be used to extract its photometry, calibrated with Pan-STARRS, 2MASS or WISE catalog data. As an example consider one of the sample stars by Legget et al 2006 (doi: 10.1111/j.1365-2966.2006.11069.x): M67-IV-2 taken with the NOT telescope. (Based on observations made with the Nordic Optical Telescope, operated by the Nordic Optical Telescope Scientific Association at the Observatorio del Roque de los Muchachos, La Palma, Spain, of the Instituto de Astrofisica de Canarias.)
+
+We can perform astrometry as before.
+```
+astrometry AS19_H.fits
+```
+
+Then we run 'photometry'. We need to specify the band used and the position of the target. For the band -b is used and currently the options are g,r,i,z,y,J,H,K and the picture needs to be in the Pan-STARRS or 2MASS footprint respectively. 
+The position can be specified via -ra -dec (Note that ra and dec have to be in degrees) or by a name with a csv file called "targets.csv" in the same folder specifying the position (So the csv file needs NAME,RA,DEC columns, where the NAME is a string and RA and DEC are in degrees) 
+
+```
+photometry AS19_H_astro.fits -b H -ra 132.8320833 -dec 11.8697222
+or
+photometry AS19_H_astro.fits -b H -name AS19
+```
+
+The result is a pdf image. It shows a cutout of the target. Above is specified if a 5 sigma source was found or forced photometry was used. Then the magnitude, statistical error, magnitude system and signal to noise are listed. Lastly, the 5 sigma limiting magnitude is given. On the right-hand side, the calibration sources are visualized. Plotted is their magnitude vs calculated zero points. In the linear part of the detector+source catalog, this should be a straight line. The median zero point is used for calibration. With the plot, the systematic error from the calibration can be assessed. For orientation, the brightness of the object is shown as a green vertical line. This pdf is saved as <original_file_name>_ra<ra>_dec<dec>.pdf 
+
+![Result of photometry extraction](sample_images/AS19_H_astro_ra132.8320833dec11.8697222.pdf)
+
 
 ## Author
 
