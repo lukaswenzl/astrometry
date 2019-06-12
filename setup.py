@@ -6,7 +6,8 @@ setup(
     description='Simple python3 tool to quickly correct the rough astronometry given by a telescope for a fits image.',
     entry_points={
         'console_scripts': [
-            'astrometry=astrometry:main'
+            'astrometry=astrometry:main',
+            'photometry=photometry:main'
         ]
     },
     install_requires = [ 'astroquery',

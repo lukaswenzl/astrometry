@@ -3,8 +3,6 @@
 Author Lukas Wenzl
 written in python 3
 
-NOTES:
--not sure if reflected images will work
 """
 
 
@@ -271,10 +269,15 @@ def parseArguments():
     parser.add_argument("-w", "--ignore_warnings", help="Set False to see all Warnings about the header if there is problems. Default is to ignore most warnings.", type=bool, default=True)
 
     parser.add_argument("-ra", "--ra", help="Set ra by hand in degrees. Should not be necessary if the info is in the fits header.", type=float, default=None)
-    parser.add_argument("-dec", "--dec", help="Set ra by hand in degrees. Should not be necessary if the info is in the fits header.", type=float, default=None)
+    parser.add_argument("-dec", "--dec", help="Set dec by hand in degrees. Should not be necessary if the info is in the fits header.", type=float, default=None)
 
     parser.add_argument("-proj1", "--projection_ra", help="Set the projection by hand. Should not be necessary if the info is in the fits header. example: -proj1 RA---TAN -proj2 DEC--TAN", type=str, default=None)
     parser.add_argument("-proj2", "--projection_dec", help="Set the projection by hand. Should not be necessary if the info is in the fits header. example: -proj1 RA---TAN -proj2 DEC--TAN", type=str, default=None)
+
+
+    parser.add_argument("-rot_scale", "--rotation_scaling", help="By default rotation and scaling is determined. If wcs already contains this info and the fit fails you can try deactivating this part by setting it to 0", type=int, default=1)
+    parser.add_argument("-trafo", "--transformation", help="By default the x and y offset is determined. If wcs already contains this info and the fit fails you can try deactivating this part by setting it to 0", type=int, default=1)
+    parser.add_argument("-fine", "--fine_transformation", help="By default a fine transformation is applied in the end. You can try deactivating this part by setting it to 0", type=int, default=1)
 
 
 
@@ -493,10 +496,12 @@ def main():
         ###tranforming to match the sources
         print("---------------------------------")
         print(">Finding the transformation")
-        print("Finding scaling and rotation")
-        wcsprm = register.get_scaling_and_rotation(observation, catalog_data, wcsprm, scale_guessed=PIXSCALE_UNCLEAR, verbose=args.verbose)
-        print("Finding offset")
-        wcsprm,_,_ = register.offset_with_orientation(observation, catalog_data, wcsprm, fast=False , INCREASE_FOV_FLAG=INCREASE_FOV_FLAG, verbose= args.verbose)
+        if(args.rotation_scaling):
+            print("Finding scaling and rotation")
+            wcsprm = register.get_scaling_and_rotation(observation, catalog_data, wcsprm, scale_guessed=PIXSCALE_UNCLEAR, verbose=args.verbose)
+        if(args.transformation):
+            print("Finding offset")
+            wcsprm,_,_ = register.offset_with_orientation(observation, catalog_data, wcsprm, fast=False , INCREASE_FOV_FLAG=INCREASE_FOV_FLAG, verbose= args.verbose)
         #wcs,_,_ = register.simple_offset(observation, catalog_data, wcs)
         #register.general_transformation(observation, catalog_data, wcs)
 
@@ -506,16 +511,17 @@ def main():
         rms = np.sqrt(np.mean(np.square(distances)))
         best_score = len(obs_x)/(rms+10) #start with current best score
         fine_transformation = False
-        for i in [2,3,5,8,10,6,4, 20,2,1,0.5]:
-            wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i)
-            if(score> best_score):
-                wcsprm = wcsprm_new
-                best_score = score
-                fine_transformation = True
-        if not fine_transformation:
-            print("Fine transformation did not imporve result so will be discarded.")
-        else:
-            print("Fine transformation applied to improve result")
+        if(args.fine_transformation):
+            for i in [2,3,5,8,10,6,4, 20,2,1,0.5]:
+                wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i)
+                if(score> best_score):
+                    wcsprm = wcsprm_new
+                    best_score = score
+                    fine_transformation = True
+            if not fine_transformation:
+                print("Fine transformation did not imporve result so will be discarded.")
+            else:
+                print("Fine transformation applied to improve result")
         #register.calculate_rms(observation, catalog_data,wcs)
 
 

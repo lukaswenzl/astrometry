@@ -79,6 +79,8 @@ def simple_offset(observation, catalog, wcsprm, report=""):
     #hist = plt.figure()
     binwidth= 1 #would there be a reason to make it bigger?
     bins = [np.arange(min(distances_x), max(distances_x) + binwidth, binwidth), np.arange(min(distances_y), max(distances_y) + binwidth, binwidth)]
+    #bins = [np.arange(-20, 20 + binwidth, binwidth), np.arange(-20, 20 + binwidth, binwidth)]
+
     #bins = [range(-100,100, 4), range(-100,100, 4)]
     #print("REMOOOOVE")
 
@@ -548,13 +550,13 @@ def calculate_rms(observation, catalog, wcsprm):
     px_scale = px_scale*60*60 #in arcsec
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=3)
     rms = np.sqrt(np.mean(np.square(distances)))
-    print("Within 3  pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g}".format(px_scale*3, len(obs_x), rms))
+    print("Within 3  pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g} pixel or {:.3g} arcsec".format(px_scale*3, len(obs_x), rms, rms*px_scale))
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=5)
     rms = np.sqrt(np.mean(np.square(distances)))
-    print("Within 5  pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g}".format(px_scale*5,len(obs_x), rms))
+    print("Within 5  pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g} pixel or {:.3g} arcsec".format(px_scale*5,len(obs_x), rms, rms*px_scale))
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=10)
     rms = np.sqrt(np.mean(np.square(distances)))
-    print("Within 10 pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g}".format(px_scale*10,len(obs_x), rms))
+    print("Within 10 pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g} pixel or {:.3g} arcsec".format(px_scale*10,len(obs_x), rms, rms*px_scale))
 
 # def calculate_rms_old(observation, catalog, wcsprm):
 #     """Calculate the rms of the final transformation."""
@@ -603,7 +605,33 @@ def calculate_rms(observation, catalog, wcsprm):
 #     print("rms {:.3g} for the {} closest sources detected".format(rms, N_OBS))
 #     print("-------------------")
 
+def find_matches_keep_catalog_info(observation, catalog, wcsprm, threshold=5):
+    catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)
+    catalog_on_sensor  = catalog_on_sensor['pixcrd']
+    obs_x = [observation["xcenter"].values]
+    cat_x = np.array( [catalog_on_sensor[:,0] ])
+    obs_y = [observation["ycenter"].values]
+    cat_y = np.array( [catalog_on_sensor[:,1] ])
 
+    distances_x =  (obs_x - cat_x.T)#.flatten()
+    distances_y =  (obs_y - cat_y.T)#.flatten()
+    obs_x = obs_x[0]
+    obs_y = obs_y[0]
+    cat_x = cat_x[0]
+    cat_y = cat_y[0]
+
+
+    #find closest points to each source in observaion
+    distances = np.min(distances_x**2 + distances_y**2, axis=0)
+    matches = np.argmin(distances_x**2 + distances_y**2, axis=0)
+
+    #search for all matches within threshold
+    obs_matched = observation.iloc[distances<threshold]
+    #obs_y = obs_y[distances<threshold]
+    cat_matched = catalog.iloc[matches[distances<threshold]]
+    #cat_y = cat_y[matches[distances<threshold]]
+    distances = distances[distances < threshold]
+    return obs_matched, cat_matched, distances
 
 def find_matches(observation, catalog, wcsprm, threshold=5):
     catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)
@@ -622,7 +650,7 @@ def find_matches(observation, catalog, wcsprm, threshold=5):
     cat_y = cat_y[0]
 
 
-    #find closest points to each source is observaion
+    #find closest points to each source in observaion
     distances = np.min(distances_x**2 + distances_y**2, axis=0)
     matches = np.argmin(distances_x**2 + distances_y**2, axis=0)
 
@@ -637,10 +665,15 @@ def find_matches(observation, catalog, wcsprm, threshold=5):
 
 
 
+
+
 def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True):
     wcsprm_original = wcsprm
     wcsprm = copy.copy(wcsprm)
 
+    if(threshold == 20):
+        observation = observation.nlargest(5, "aperture_sum")
+        #print("using 5 brightest sources")
     obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=threshold)
     if(len(obs_x)<4):
         return wcsprm_original, 0 #not enough matches
@@ -653,8 +686,8 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True)
     threshold_min = np.log(20) #minimum distance to make usefull scaling or angle estimation
     if(threshold == 10):
         threshold_min = np.log(200)
-    if(threshold == 20):
-        threshold_min = np.log(250)
+    #if(threshold == 20):
+    #    threshold_min = np.log(250)
     mask = (log_distances_obs>threshold_min)&(log_distances_cat>threshold_min)
     scale_offset = -log_distances_obs+log_distances_cat
 
