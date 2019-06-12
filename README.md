@@ -14,7 +14,7 @@ The package also includes a quick photometry tool.
 
 ### Prerequisites
 
-The program was tested for python 3.6 or newer
+The program was tested for python 3.6 or newer.
 Apart from standard packages this package needs astroquery, astropy and photutils
 
 ```
