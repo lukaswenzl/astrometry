@@ -68,7 +68,7 @@ astrometry --help
 You can give a list of filenames
 
 ```
-astrometry sample_images/PSO016m06_K.fits sample_images/PSO016m06_K.fits
+astrometry sample_images/sample_file.fits sample_images/sample_file.fits
 ```
 
 Or a directory where every fits file without the addition _astro will be used.
