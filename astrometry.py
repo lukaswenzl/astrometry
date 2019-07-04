@@ -5,10 +5,6 @@ written in python 3
 
 """
 
-
-
-#
-#
 #Author Lukas Wenzl
 #written in python 3
 
@@ -25,7 +21,6 @@ from argparse import ArgumentParser
 import get_catalog_data as query
 import get_transformation as register
 import settings as s
-
 #
 import astropy.units as u
 from astropy.io import fits
@@ -37,25 +32,25 @@ from photutils import aperture_photometry, CircularAperture
 #from astropy.stats import mad_std
 from astropy.stats import sigma_clipped_stats
 from matplotlib.colors import LogNorm
-
 from astropy.wcs import WCS
 from astropy.wcs import Wcsprm
-
-
 from astropy.table import Table
-
 import warnings
 import os
+import copy
 
 
 
-def find_sources(image):
+def find_sources(image, vignette=3):
     """Find surces in the image. Uses DAOStarFinder with symmetric gaussian kernels. Only uses 5 sigma detections. It only gives the 200 brightest sources or less.
+    This has to work well for the later calculations to work. Possible issues: low signal to noise image, gradient in the background
 
     Parameters
     ----------
     image
         Observed image (without background)
+    vignette : float
+        Cut off courners with a vignette. Default: nothing cut off
 
     Returns
     -------
@@ -66,21 +61,27 @@ def find_sources(image):
     #find sources
     #bkg_sigma = mad_std(image)
     mean, median, std = sigma_clipped_stats(image, sigma=3.0)
-    #sigma = np.std(image)
-    #print(bkg_sigma)
-    #print(std)
+
+    if(vignette < 3):
+        image = copy.copy(image)
+        sidelength = np.max(image.shape)
+        print(sidelength)
+        x = np.arange(0, image.shape[1])
+        y = np.arange(0, image.shape[0])
+        vignette = vignette * sidelength/2
+        mask = (x[np.newaxis,:]-sidelength/2)**2 + (y[:,np.newaxis]-sidelength/2)**2 < vignette**2
+        image[~mask] = median
+
     daofind = DAOStarFinder(fwhm=4., threshold=5.*std, brightest=200)
     sources = daofind(image)
     for col in sources.colnames:
         sources[col].info.format = '%.8g'  # for consistent table output
-    #print(sources)
 
     positions = (sources['xcentroid'], sources['ycentroid'])
     apertures = CircularAperture(positions, r=4.)
     phot_table = aperture_photometry(image, apertures)
     for col in phot_table.colnames:
         phot_table[col].info.format = '%.8g'  # for consistent table output
-    #print(phot_table)
 
     observation = Table(phot_table).to_pandas()
 
@@ -114,22 +115,7 @@ def write_wcs_to_hdr(original_filename, wcsprm):
             if (old_parameter in hdr_file):
                 del hdr_file[old_parameter]
 
-        #if new file doe not have off diagonal px values or unity delete the old ones
-        #pc = wcsprm.get_pc()
-        #if (pc[0, 0] ==1 and "PC1_1" in hdr_file):
-        #    del hdr_file["PC1_1"]
-        #if (pc[1, 1] ==1 and "PC2_2" in hdr_file):
-        #    del hdr_file["PC1_1"]
-        #if ( (pc[0, 1] ==0 or pc[1,0] == 0):
-        #    if "PC1_1" in hdr_file):
-        #    del hdr_file["PC1_1"]
-        #if (pc[0, 0] ==1 and "PC1_1" in hdr_file):
-        #    del hdr_file["PC1_1"]
         hdr_file.update(wcs.to_header())
-
-        #print(repr(wcs.to_header()))
-        #print("-----------------------")
-        #hdr_old.update(wcs.to_header())#.keys(),wcs.to_header().values())
         repr(hdr_file)
 
         hdu.header = hdr_file
@@ -142,6 +128,16 @@ def write_wcs_to_hdr(original_filename, wcsprm):
 
 
 def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None, projection_ra=None, projection_dec=None):
+    """Tries to handle additional or missing data from the header.
+    If your picture does not conform with fits standards this might be the section to edit to make the code work
+
+    Parameters
+    ----------
+    wcsprm : astropy.wcs.wcsprm
+        World coordinate system object decsribing translation between image and skycoord
+    hdr : header
+    ...
+    """
     fov_radius = 4 #arcmin radius to include field of view
     INCREASE_FOV_FLAG = False # increase the field to view by 50% to search in catalog if position on sky is inaccurate
     PIXSCALE_UNCLEAR = False
@@ -151,15 +147,12 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None,
     for i in keywords_check:
         if(i in hdr.keys()):
             keywords_present.append(i)
-    # print("Additional keywords found by header:")
-    # print(keywords_present)
 
     if("NAXIS1" not in keywords_present or "NAXIS2" not in keywords_present ):
         print("ERROR: NAXIS1 or NAXIS2 missing in file. Please add!")
     else:
         axis1 = hdr["NAXIS1"]
         axis2 = hdr["NAXIS2"]
-    #if(wcsprm.isunity()):
 
     pc = wcsprm.get_pc()
     cdelt = wcsprm.get_cdelt()
@@ -200,10 +193,11 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None,
 
 
     if(np.array_equal(wcsprm.crpix, [0,0])):
-        #seems to not be in header, better set in middle
+        #centrl pixel seems to not be in header, better set in middle
         wcsprm.crpix = [axis1/2, axis2/2]
 
-    if(np.array_equal(wcsprm.crval, [0,0] )): ###what to do??
+    if(np.array_equal(wcsprm.crval, [0,0] )):
+        ###sky position not found. Maybe there is some RA and DEC info in the header:
         INCREASE_FOV_FLAG = True
         if ("RA" in keywords_present and "DEC" in keywords_present): ##carefull degree and hourangle!!!
             wcsprm.crval = [hdr["RA"], hdr["DEC"]]
@@ -219,10 +213,7 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None,
     if(np.array_equal(wcsprm.crval, [0,0] )):
         print(">>>>>>>>>WARNING")
         print("No rough sky position was found for this object. Please add as -ra XX -dex XX both in degress. Adding the position as keywords in the fits file header will also work. The keywords are RA and DEC. The program expects the values in degrees. ")
-    #wcsprm.crval = [172.3556987, 18.77342494] #deg  , deg
-    #wcsprm.pc = [[-1,0],[0,1]]
-    #wcsprm.crpix = [wcsprm.crpix[0]+22, wcsprm.crpix[1]+70]
-    #
+
     if(np.array_equal(wcsprm.ctype, ["",""])):
         INCREASE_FOV_FLAG = True
         if(projection_ra is not None and projection_dec is not None):
@@ -254,10 +245,7 @@ def parseArguments():
 
 
     # Positional mandatory arguments
-    parser.add_argument("input", nargs='+',help="Input Image with .fits ending. A folder or multiple Images also work", type=str)#, default="sample_images/pso016p03_Jrot.fits")  #pso016p03_Jrot.fits")
-    #parser.add_argument('-l','--list', nargs='+', help='<Required> Set flag', required=True)
-    # Use like:
-    # python arg.py -l 1234 2345 3456 4567
+    parser.add_argument("input", nargs='+',help="Input Image with .fits ending. A folder or multiple Images also work", type=str)
     parser.add_argument("-c", "--catalog", help="Catalog to use for position reference ('PS' or 'GAIA')", type=str, default="PS")
 
     parser.add_argument("-s", "--save_images", help="Set True to create _image_before.pdf and _image_after.pdf", type=bool, default=False)
@@ -276,12 +264,10 @@ def parseArguments():
 
 
     parser.add_argument("-rot_scale", "--rotation_scaling", help="By default rotation and scaling is determined. If wcs already contains this info and the fit fails you can try deactivating this part by setting it to 0", type=int, default=1)
-    parser.add_argument("-trafo", "--transformation", help="By default the x and y offset is determined. If wcs already contains this info and the fit fails you can try deactivating this part by setting it to 0", type=int, default=1)
+    parser.add_argument("-xy_trafo", "--xy_transformation", help="By default the x and y offset is determined. If wcs already contains this info and the fit fails you can try deactivating this part by setting it to 0", type=int, default=1)
     parser.add_argument("-fine", "--fine_transformation", help="By default a fine transformation is applied in the end. You can try deactivating this part by setting it to 0", type=int, default=1)
 
-
-
-
+    parser.add_argument("-vignette", "--vignette", help="Do not use corner of the image. Only use the data in a circle around the center with certain radius. Default: not used. Set to 1 for circle that touches the sides. Less to cut off more", type=float, default=3)
 
 
 
@@ -330,9 +316,8 @@ def main():
     # PC2_2   =             0.000000          / Translation matrix element
 
     fits_image_filenames = args.input
-    #print(fits_image_filenames)
 
-    #for directories search for appropriate fits files
+    #if directory given search for appropriate fits files
     if(os.path.isdir(fits_image_filenames[0])):
         print("detected a directory. Will search for fits files in it")
         path = fits_image_filenames[0]
@@ -361,16 +346,7 @@ def main():
             image_or = hdul[0].data.astype(float)
             image = image_or - np.median(image_or)
 
-        #pixel scale by hand for testing
-        # hdr["CDELT1"] = -6.0000000000000E-5#-5!!!!
-        # hdr["CDELT2"] = 6.0000000000003E-5#-5!!!
-        # hdr["PC1_1"] =0.98006658
-        # hdr["PC1_2"] =0.19866933
-        # hdr["PC2_1"]=-0.19866933
-        # hdr["PC2_2"] =0.98006658
-
-
-        observation = find_sources(image)
+        observation = find_sources(image, args.vignette)
         #print(observation)
 
         positions = (observation['xcenter'], observation['ycenter'])
@@ -378,23 +354,18 @@ def main():
 
 
         #world coordinates
-        #wcs = WCS(hdr)
         print(">Info found in the file -- (CRVAl: position of central pixel (CRPIX) on the sky)")
         print(WCS(hdr))
-        #print(wcs)
-        #
 
 
-
-
-        #header = hdr)
         wcsprm = Wcsprm(hdr.tostring().encode('utf-8')) #everything else gave me errors with python 3
-        #print(wcsprm.get_pc())
         wcsprm, fov_radius, INCREASE_FOV_FLAG, PIXSCALE_UNCLEAR = read_additional_info_from_header(wcsprm, hdr, args.ra, args.dec, args.projection_ra, args.projection_dec)
         if(args.verbose):
             print(WCS(wcsprm.to_header()))
         #wcsprm.pc = [[2, 0],[0,1]]
 
+
+        #Possibly usefull examples of how to use wcsprm:
         #print(wcsprm.set())
         #print(wcsprm.get_pc())
         #pc = wcsprm.get_pc()
@@ -422,15 +393,6 @@ def main():
         # and are nowhere visible to the lower-level routines. In particular, set resets cdelt to unity if CDi_ja is present
         # (and no PCi_ja). If no CROTAia is associated with the latitude axis, set reverts to a unity PCi_ja matrix.
 
-        #ax = plt.subplot(projection=wcs)
-        #fig = plt.figure()
-        #ax = fig.add_axes([0.15, 0.1, 0.8, 0.8], projection=wcs)
-
-        # ax = plt.subplot(projection=wcs)
-        # plt.imshow(image, cmap='Greys', origin='lower', norm=LogNorm())
-        # apertures.plot(color='blue', lw=1.5, alpha=0.5)
-        # ra = ax.coords[0]
-        # dec = ax.coords[1]
 
 
 
@@ -441,7 +403,7 @@ def main():
         coord = SkyCoord(wcsprm.crval[0], wcsprm.crval[1], unit=(u.deg, u.deg), frame="icrs")
 
 
-        #put in nice wrapper! with repeated tries and maybe try synchron!
+        #better: put in nice wrapper! with repeated tries and maybe try synchron!
         print(">Dowloading catalog data")
         radius = u.Quantity(fov_radius, u.arcmin)#will prob need more
         catalog_data = query.get_data(coord, radius, args.catalog)
@@ -465,26 +427,20 @@ def main():
             #apertures_catalog = CircularAperture(wcs.wcs_world2pix(catalog_data[["ra", "dec"]], 1), r=5.)
             print("Now we have a total of {} sources. Keep in mind that there might be duplicates now since we combined 2 catalogs".format(catalog_data.shape[0]))
 
-        #remove duplicates in catalog
+        #remove duplicates in catalog?
 
-
-        #apertures_catalog = CircularAperture(wcs.wcs_world2pix(catalog_data[["ra", "dec"]], 1), r=5.)
         apertures_catalog = CircularAperture(wcsprm.s2p(catalog_data[["ra", "dec"]], 1)['pixcrd'], r=5.)
 
 
-        #plotting what we have, I keep it in the detector field, world coordinates are a pain to plot
+        #plotting what we have, I keep it in the detector field, world coordinates are more painfull to plot
         fig = plt.figure()
         fig.canvas.set_window_title('Input for {}'.format(fits_image_filename))
         plt.xlabel("pixel x direction")
         plt.ylabel("pixel y direction")
         plt.title("Input - red: catalog sources, blue: detected sources in img")
-        #ax = fig.add_axes([0.15, 0.1, 0.8, 0.8], projection=wcs)
-        #plt.plot(r["RAJ2000"], r["DEJ2000"], "x")
-        #plt.xlabel("X")
         plt.imshow(image,cmap='Greys', origin='lower', norm=LogNorm())
         apertures.plot(color='blue', lw=1.5, alpha=0.5)
         apertures_catalog.plot(color='red', lw=1.5, alpha=0.5)
-        #apertures_GAIA.plot(color='black', lw=1.5, alpha=0.5)
 
         plt.xlim(-200,image.shape[0]+200)
         plt.ylim(-200,image.shape[1]+200)
@@ -499,14 +455,11 @@ def main():
         if(args.rotation_scaling):
             print("Finding scaling and rotation")
             wcsprm = register.get_scaling_and_rotation(observation, catalog_data, wcsprm, scale_guessed=PIXSCALE_UNCLEAR, verbose=args.verbose)
-        if(args.transformation):
+        if(args.xy_transformation):
             print("Finding offset")
             wcsprm,_,_ = register.offset_with_orientation(observation, catalog_data, wcsprm, fast=False , INCREASE_FOV_FLAG=INCREASE_FOV_FLAG, verbose= args.verbose)
-        #wcs,_,_ = register.simple_offset(observation, catalog_data, wcs)
-        #register.general_transformation(observation, catalog_data, wcs)
 
         #correct subpixel error
-        #register.calculate_rms(observation, catalog_data,wcsprm)
         obs_x, obs_y, cat_x, cat_y, distances = register.find_matches(observation, catalog_data, wcsprm, threshold=3)
         rms = np.sqrt(np.mean(np.square(distances)))
         best_score = len(obs_x)/(rms+10) #start with current best score
@@ -524,7 +477,7 @@ def main():
                 print("Fine transformation applied to improve result")
         #register.calculate_rms(observation, catalog_data,wcs)
 
-        #make wcsprim more physical by moving scaling to
+        #make wcsprim more physical by moving scaling to cdelt, out of the pc matrix
         wcs =WCS(wcsprm.to_header())
         if(args.verbose):
             print(wcs)

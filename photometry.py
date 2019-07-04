@@ -212,10 +212,6 @@ def main():
         apertures = CircularAperture(positions, r=4.)
 
 
-
-
-
-
         #get rough coordinates
         coord = SkyCoord(wcsprm.crval[0], wcsprm.crval[1], unit=(u.deg, u.deg), frame="icrs")
 
@@ -230,8 +226,6 @@ def main():
 
 
         apertures_catalog = CircularAperture(wcsprm.s2p(catalog_data[["ra", "dec"]], 1)['pixcrd'], r=5.)
-
-
 
         obs_matched, cat_matched, distances = register.find_matches_keep_catalog_info(observation, catalog_data, wcsprm, threshold=3)
         print("Found {} matches".format(obs_matched.shape[0]))
@@ -413,31 +407,6 @@ def main():
             plt.ylabel("Zeropoint (should be constant in linear part of the detector)")
             plt.legend()
             plt.show()
-        #
-        # plt.figure()
-        # plt.plot(obs_matched["aperture_sum"].values,ZP, ".")
-        # plt.show()
-        #
-        # plt.figure()
-        # plt.plot(np.log(obs_matched["aperture_sum"].values),cat_matched[band_name].values, ".")
-
-
-        #check final figure
-        # fig = plt.figure()
-        # fig.canvas.set_window_title('Result for {}'.format(fits_image_filename))
-        # plt.xlabel("pixel x direction")
-        # plt.ylabel("pixel y direction")
-        # plt.title("Result - red: catalog sources, blue: detected sources in img")
-        # plt.imshow(image,cmap='Greys', origin='lower', norm=LogNorm())
-        # apertures.plot(color='blue', lw=1.5, alpha=0.5)
-        # #apertures_catalog = CircularAperture(wcs.wcs_world2pix(catalog_data[["ra", "dec"]], 1), r=5.)
-        # apertures_catalog = CircularAperture(wcsprm.s2p(catalog_data[["ra", "dec"]], 1)['pixcrd'], r=5.)
-        #
-        # apertures_catalog.plot(color='red', lw=1.5, alpha=0.5)
-        # plt.show()
-        # if(args.save_images):
-        #     name_parts = fits_image_filename.rsplit('.', 1)
-        #     plt.savefig(name_parts[0]+"_image_after.pdf")
 
 
         print("overall time taken")
@@ -445,9 +414,6 @@ def main():
         # if(args.show_images):
         #     plt.show()
     print("-- finished --")
-
-
-
 
 
 if __name__ == '__main__':

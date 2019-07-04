@@ -42,21 +42,7 @@ def simple_offset(observation, catalog, wcsprm, report=""):
 
     """
     report = report+"simple_offset aproach via a histogram \n"
-    # distances_x = []
-    # distances_y = []
-    # for _, obs in observation.iterrows():
-    #     for _, cat in catalog.iterrows():
-    #         #using PS!
-    #         cat_on_sensor = wcsprm.wcsprm_world2pix([[cat["ra"],cat["dec"]]],1)[0]
-    #
-    #         dist_x = (obs['xcenter']-cat_on_sensor[0])
-    #         dist_y = (obs['ycenter']-cat_on_sensor[1])
-    #
-    #         distances_x.append(dist_x)
-    #         distances_y.append(dist_y)
 
-    #vectorized distances, better by a factor. Went from a second for this method to well below a second,
-    #complete runtime for sample image went from 5.3 to 2.9 seconds (mostly overhead from download)
     #catalog_on_sensor = wcsprm.wcs_world2pix(catalog[["ra", "dec"]], 1) #now using wcsprm
     catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)
     catalog_on_sensor  = catalog_on_sensor['pixcrd']
@@ -68,7 +54,9 @@ def simple_offset(observation, catalog, wcsprm, report=""):
     obs = [observation["ycenter"].values]
     cat = np.array( [catalog_on_sensor[:,1] ])
     distances_y =  (obs - cat.T).flatten()
+    #vectorized distances, better by a factor. Went from a second for this method to well below a second,
 
+    #plot to visualize if something is not working
     # plt.figure()
     # plt.hist(distances_x, bins=1500)
     # plt.xlim(-100,100)
@@ -79,25 +67,11 @@ def simple_offset(observation, catalog, wcsprm, report=""):
     #hist = plt.figure()
     binwidth= 1 #would there be a reason to make it bigger?
     bins = [np.arange(min(distances_x), max(distances_x) + binwidth, binwidth), np.arange(min(distances_y), max(distances_y) + binwidth, binwidth)]
-    #bins = [np.arange(-20, 20 + binwidth, binwidth), np.arange(-20, 20 + binwidth, binwidth)]
 
-    #bins = [range(-100,100, 4), range(-100,100, 4)]
-    #print("REMOOOOVE")
-
-
-    #H, x_edges, y_edges,tmp = plt.hist2d(distances_x, distances_y, bins=bins)
+    #H, x_edges, y_edges,tmp = plt.hist2d(distances_x, distances_y, bins=bins) #to visualize for testing
     H, x_edges, y_edges = np.histogram2d(distances_x, distances_y, bins=bins)
 
-    #weights with brightness?
-    # plt.xlim(-100,100)
-    # plt.ylim(-100,100)
-    #plt.show()
-    #
-    #find background IRRELEVANT
-    # H_center,_,_ = np.histogram2d(distances_x, distances_y, bins=bins, range=[[-100,100], [-100,100]]) #same calibration as above just without image output and only for central range
-    # bkg = np.mean(H_center) #median would just be 0 or 1, not usefull, maybe I need to exclude the peak?
-    # bkg_sigma = np.std(H_center)
-
+    #finding the peak for the x and y distance where the two sets overlap
     peak = np.argwhere(H == H.max())[0] #take fisrt peak
     signal = np.sum(H[peak[0]-1:peak[0]+2, peak[1]-1:peak[1]+2])   #sum up signal in fixed aperture 1 pixel in each direction around the peak, so a 3x3 array, total 9 pixel
     signal_wide = np.sum(H[peak[0]-4:peak[0]+5, peak[1]-4:peak[1]+5])
@@ -115,7 +89,6 @@ def simple_offset(observation, catalog, wcsprm, report=""):
     current_central_pixel = wcsprm.crpix
     new_central_pixel = [current_central_pixel[0] + x_shift, current_central_pixel[1] +y_shift]
     wcsprm.crpix = new_central_pixel
-    #wcsprm.wcsprm
     return wcsprm, signal, report
 
 
@@ -135,7 +108,7 @@ def rotate(wcsprm, rot):
     return wcsprm
 
 def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=False, report_global="", INCREASE_FOV_FLAG=False):
-    """Use simple_offset(...) but tries 0,90,180,270 rotation.
+    """Use simple_offset(...) but with trying 0,90,180,270 rotation.
 
     Parameters
     ----------
@@ -156,7 +129,7 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
     wcs, signal, report
 
     """
-    observation_all = copy.copy(observation)
+    observation = copy.copy(observation)
     N_SOURCES = observation.shape[0]
     if(fast):
         if(N_SOURCES > s.USE_N_SOURCES):
@@ -173,7 +146,7 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
         print("offset_with_orientation, seaching for offset while considering 0,90,180,270 rotations")
         if(fast):
             print("running in fast mode")
-    # rotations = [ [[1,0],[0,1]], [[-1,0],[0,-1]],
+    # rotations = [ [[1,0],[0,1]], [[-1,0],[0,-1]], #already checking for reflections with the scaling and general rotations
     #               [[-1,0],[0,1]], [[1,0],[0,-1]],
     #               [[0,1],[1,0]], [[0,-1],[-1,0]],
     #               [[0,-1],[1,0]], [[0,1],[-1,0]],
@@ -204,21 +177,6 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
     report = report + "A total of {} sources from the fits file where used. \n".format(N_SOURCES)
     report = report + "The signal (#stars) is {} times higher than noise outlierers for other directions. (more than 2 would be nice, typical: 8 for PS)\n".format(signals[i]/median)
 
-    # if(fast & (signals[i] < N_SOURCES * s.FASTMODE_THRESHOLD)):
-    #     if(verbose):
-    #         print("Not enough sources were matched. trying again without fast mode ")
-    #     #wcsprm_global.pc = [[1,0],[0,1]] #if file was wrongly rotated by hand
-    #     #print(str())
-    #     pc = wcsprm_global.get_pc()
-    #     # if any( [np.array_equal(pc, i) for i in rotations]):
-    #     #     print("...and reseting rotation")
-    #     #     wcsprm_global.pc = [[1,0],[0,1]]
-    #     report_global = report_global + "Turned fast mode off because not enough sources were detected"
-    #     wcsprm_new, signal_new, report_new = offset_with_orientation(observation_all, catalog, wcsprm_global, report_global=report_global, verbose=False)
-    #     if(signal_new > signal*2): #only accept if better
-    #         wcsprm = wcsprm_new
-    #         report = report_new
-    #         signal = signal_new
 
     if(verbose):
         print("We found the following world coordinates: ")
@@ -230,43 +188,6 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
     print("Found offset {:.3g} in x direction and {:.3g} in y direction".format(off[0], off[1]))
 
     return wcsprm, signal, report
-
-
-# def general_transformation(observation, catalog, wcs, verbose=True):
-#     """Find general transformation. assumes square pixel.
-#
-#     Parameters
-#     ----------
-#     observation : dataframe
-#         pandas dataframe with sources on the observation
-#     catalog : dataframe
-#         pandas dataframe with nearby sources from online catalogs with accurate astrometric information
-#     wcs
-#         Wold coordinates file
-#
-#     Returns
-#     -------
-#
-#     """
-#     N_SOURCES = observation.shape[0]
-#     if(N_SOURCES > s.USE_N_SOURCES):
-#         N_SOURCES = s.USE_N_SOURCES
-#     observation = observation.nlargest(N_SOURCES, 'aperture_sum')
-#     catalog = catalog.nsmallest(N_SOURCES*4, 'mag')
-#     if(verbose):
-#         print("--------------------------------------")
-#         print("Searching for a general transformation")
-#
-#     #I need one match. I will guess that the two brightest objects align and will go down from there
-#     match_guess = []
-#     for i in range(3):
-#         match_guess.append([i,i])
-#         guesses = [[i,j] for j in range(i)]
-#         match_guess.append(guesses)
-#         guesses = [[j,i] for j in range(i)]
-#         match_guess.append(guesses)
-#
-#     print(match_guess)
 
 
 def calculate_dist(data_x, data_y):
@@ -343,19 +264,14 @@ def peak_with_histogram(obs_x, obs_y, cat_x, cat_y):
     H, x_edges, y_edges = np.histogram2d(distances_x, distances_y, bins=bins)
 
     peak = np.argwhere(H == H.max())[0] #take fisrt peak
-    #signal = np.sum(H[peak[0]-1:peak[0]+2, peak[1]-1:peak[1]+2])   #sum up signal in fixed aperture 1 pixel in each direction around the peak, so a 3x3 array, total 9 pixel
-    #signal_wide = np.sum(H[peak[0]-4:peak[0]+5, peak[1]-4:peak[1]+5])
-    #report = report+"signal wide (64pixel) - signal (9pixel)  = {}. If this value is large then there might be rotation or scaling issues. \n".format(signal_wide-signal)
-    #aperture = 9 #pixel
-    ##signal wide: 64 pixel total
-    # print(signal, signal_wide)
+
 
     x_shift = (x_edges[peak[0]] + x_edges[peak[0]+1])/2
     y_shift = (y_edges[peak[1]] + y_edges[peak[1]+1])/2
 
     return x_shift,y_shift
 
-def cross_corr_to_fourier_space(a):#!!!!needs to euqalize between two arrays, maybe by extensive padding? unclear, maybe I can determine the frequencies?
+def cross_corr_to_fourier_space(a):
     "Tranform 2D array into fourier space. Uses padding and normalization."
     aa = (a - np.mean(a))/np.std(a)
     #aaa = np.pad(aa, (aa.shape[0]//2,aa.shape[0]//2), 'constant') #wraps around so half the size should be fine, padds 2D array with zeros
@@ -431,9 +347,6 @@ def peak_with_cross_correlation(log_distance_obs, angle_obs, log_distance_cat, a
 
     #finding the sub pixel shift of the true peak
     # print("sub pixel offset:")
-    # print(peak)
-    # print(np.sum(np.sum(around_peak, axis=1)*(np.arange(around_peak.shape[0])+1))/np.sum(around_peak)-2)#should be peak[0]
-    # print(np.sum(np.sum(around_peak, axis=0)*(np.arange(around_peak.shape[1])+1))/np.sum(around_peak)-2)#should be peak[1]
     peak_x_subpixel = np.sum(np.sum(around_peak, axis=1)*(np.arange(around_peak.shape[0])+1))/np.sum(around_peak)-2#should be peak[0] offset
     peak_y_subpixel = np.sum(np.sum(around_peak, axis=0)*(np.arange(around_peak.shape[1])+1))/np.sum(around_peak)-2#should be peak[1] offset
 
@@ -448,9 +361,6 @@ def peak_with_cross_correlation(log_distance_obs, angle_obs, log_distance_cat, a
 
     x_shift = (peak[0]+peak_x_subpixel-middle_x)*binwidth_dist
     y_shift = (peak[1]+peak_y_subpixel-middle_y)*binwidth_ang
-
-    # print(np.e**(-x_shift))
-    # print(y_shift/2/np.pi*360)
 
     scaling= np.e**(-x_shift)
     rotation = y_shift#/2/np.pi*360 maybe easier in rad
@@ -558,52 +468,6 @@ def calculate_rms(observation, catalog, wcsprm):
     rms = np.sqrt(np.mean(np.square(distances)))
     print("Within 10 pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g} pixel or {:.3g} arcsec".format(px_scale*10,len(obs_x), rms, rms*px_scale))
 
-# def calculate_rms_old(observation, catalog, wcsprm):
-#     """Calculate the rms of the final transformation."""
-#     #catalog_on_sensor = wcs.wcs_world2pix(catalog[["ra", "dec"]], 1)
-#     catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)['pixcrd']
-#
-#
-#     obs = [observation["xcenter"].values]
-#     cat = np.array( [catalog_on_sensor[:,0] ])
-#     distances_x =  (obs - cat.T)#.flatten()
-#
-#     obs = [observation["ycenter"].values]
-#     cat = np.array( [catalog_on_sensor[:,1] ])
-#     distances_y =  (obs - cat.T)#.flatten()
-#
-#     #find closest points to each source is observaion
-#     distances = np.min(distances_x**2 + distances_y**2, axis=0)
-#     #print(distances)
-#     #indices for the 10 brightest sources
-#
-#     N_OBS = observation.shape[0]
-#     rms = np.sqrt(np.mean(np.square(distances)))
-#     print("rms {:.3g} for all {} sources detected. (likely high because not all will be in the catalog)".format(rms, N_OBS))
-#     if(N_OBS > 50):
-#         N_OBS = 50
-#         ind = np.argpartition(observation["aperture_sum"].values, -N_OBS)[-N_OBS:]
-#         rms = np.sqrt(np.mean(np.square(distances[ind])))
-#         print("rms {:.3g} for the {} brightest sources detected. (likely high because not all will be in the catalog)".format(rms, N_OBS))
-#     if(N_OBS > 10):
-#         N_OBS = 10
-#         ind = np.argpartition(observation["aperture_sum"].values, -N_OBS)[-N_OBS:]
-#         rms = np.sqrt(np.mean(np.square(distances[ind])))
-#         print("rms {:.3g} for the {} brightest sources detected".format(rms, N_OBS))
-#
-#     N_OBS = 50
-#     if(len(distances) < 50):
-#         N_OBS = len(distances)-1
-#     closest = np.partition(distances, N_OBS)[:N_OBS]
-#     rms = np.sqrt(np.mean(np.square(closest)))
-#     print("rms {:.3g} for the {} closest sources detected. (If below one the tranforation likely worked)".format(rms, N_OBS))
-#
-#     if(N_OBS > 10):
-#         N_OBS = 10
-#     closest = np.partition(distances, N_OBS)[:N_OBS]
-#     rms = np.sqrt(np.mean(np.square(closest)))
-#     print("rms {:.3g} for the {} closest sources detected".format(rms, N_OBS))
-#     print("-------------------")
 
 def find_matches_keep_catalog_info(observation, catalog, wcsprm, threshold=5):
     catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)
@@ -668,6 +532,26 @@ def find_matches(observation, catalog, wcsprm, threshold=5):
 
 
 def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True):
+    """Final improvement of registration. This requires that the wcs is already accurate to a few pixels.
+
+    Parameters
+    ----------
+    observation : dataframe
+        pandas dataframe with sources on the observation
+    catalog : dataframe
+        pandas dataframe with nearby sources from online catalogs with accurate astrometric information
+    wcsprm
+        Wcsprm file
+    threshold : float
+        maximum separation to consider two sources matches
+    verbose : boolean
+        print details
+
+    Returns
+    -------
+    wcsprm
+
+    """
     wcsprm_original = wcsprm
     wcsprm = copy.copy(wcsprm)
 
@@ -723,58 +607,3 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True)
     rms = np.sqrt(np.mean(np.square(distances)))
     score = len(obs_x)/(rms+10) #number of matches within 3 pixel over rms+1 (so its bigger than 0)
     return wcsprm, score
-
-
-
-
-
-def fine_transformation_old(observation, catalog, wcs, verbose=True):
-    """TODO Final improvement of registration. This requires that the wcs is already accurate to a few pixels.
-
-    Parameters
-    ----------
-    observation : dataframe
-        pandas dataframe with sources on the observation
-    catalog : dataframe
-        pandas dataframe with nearby sources from online catalogs with accurate astrometric information
-
-    Returns
-    -------
-    wcs
-
-    """
-    if(verbose):
-        print("---- Final fine subpixel improvement of the registration. ----")
-    catalog_on_sensor = wcs.wcs_world2pix(catalog[["ra", "dec"]], 1)
-    obs = [observation["xcenter"].values]
-    cat = np.array( [catalog_on_sensor[:,0] ])
-    distances_x =  (obs - cat.T)#.flatten()
-
-    obs = [observation["ycenter"].values]
-    cat = np.array( [catalog_on_sensor[:,1] ])
-    distances_y =  (obs - cat.T)#.flatten()
-
-    #find closest points to each source is observaion
-    distances = np.min(distances_x**2 + distances_y**2, axis=0)
-    distances_index = np.argmin(distances_x**2 + distances_y**2, axis=0)
-    index1 = distances<=2.12 #1,5 pixel diagonally so sqrt(2)*3/2
-    if(verbose):
-        print("{} sources are matched within 2.12 pixels. Will register them.".format(index1.sum()))
-    index2 =distances_index[index1] #reconstruct the corresponding observation and catalog items
-
-    x_shift = np.mean(distances_x[index2,index1])
-    y_shift = np.mean(distances_y[index2,index1])
-    total_offset = (x_shift**2 + y_shift**2)**(0.5)
-
-
-    if(total_offset > 5):
-        print("Fine transformation failed, offset would be more than 5 pixel. Will not use fine transformation and quit")
-        return wcs
-
-    print("We find a subpixel offset of {:.3g} in the x direction and {:.3g} in the y direction \n".format(x_shift, y_shift))
-
-    current_central_pixel = wcs.wcs.crpix
-    new_central_pixel = [current_central_pixel[0] + x_shift, current_central_pixel[1] +y_shift]
-    wcs.wcs.crpix = new_central_pixel
-    #wcs.wcs
-    return wcs

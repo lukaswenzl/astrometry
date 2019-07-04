@@ -36,8 +36,3 @@ FASTMODE_THRESHOLD = 0.5 #half the sources in fast mode have to be detected othe
 #query catalog_data
 #MAG_PS = "brightest" #magnitue of PANSTARRS to be used: either: 'gmag', "zmag", .., "brightest"
 #MAG_GAIA = "phot_g_mean_mag" #magnitude of GAIA to be used
-
-#other:
-
-
-#info about telescopes....  if you detect in the header: then use the following for missing values
