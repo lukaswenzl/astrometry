@@ -4,6 +4,7 @@ sample_images/**
 !sample_images/sample_file_input.png
 !sample_images/sample_file_result.png
 !sample_images/sample_file_photometry_result.png
+!sample_images/targets.csv
 
 testing/
 eduardo_test_files/
