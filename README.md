@@ -118,7 +118,7 @@ Result:
 
 ## Photometry tool
 
-The package also includes a quick tool to perform photometry for a specific source in the image. After astrometry calibration, the position of the targeted object can be used to extract its photometry, calibrated with Pan-STARRS, 2MASS or WISE catalog data. As an example consider one of the sample stars by Legget et al 2006 (doi: 10.1111/j.1365-2966.2006.11069.x): M67-IV-2 taken with the NOT telescope. (Based on observations made with the Nordic Optical Telescope, operated by the Nordic Optical Telescope Scientific Association at the Observatorio del Roque de los Muchachos, La Palma, Spain, of the Instituto de Astrofisica de Canarias.)
+The package also includes a quick tool to perform photometry for a specific source in the image. After astrometry calibration, the position of the targeted object can be used to extract its photometry, calibrated with Pan-STARRS, 2MASS or WISE catalog data. As an example consider one of the sample stars by Legget et al 2006 (doi: 10.1111/j.1365-2966.2006.11069.x): M67-IV-2 taken with the NOT telescope (NOTcam). (Based on observations made with the Nordic Optical Telescope, operated by the Nordic Optical Telescope Scientific Association at the Observatorio del Roque de los Muchachos, La Palma, Spain, of the Instituto de Astrofisica de Canarias. Proposal Number:  59-015, Observers: Irham Andika, Lukas Wenzl, PI: Roberto Decarli)
 
 We can perform astrometry as before.
 ```
@@ -139,7 +139,6 @@ The result is a pdf image. It shows a cutout of the target. Above is specified i
 ![Result of photometry extraction](sample_images/AS19_photometry_result.png)
 
 The literature values is 12.363+-0.01 mag for this source. Therefore the systematics from the calibration have to be considered for the error, but overall the result is consistent with the literature.
-
 
 
 
