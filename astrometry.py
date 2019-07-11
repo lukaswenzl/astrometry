@@ -62,6 +62,7 @@ def find_sources(image, vignette=3):
     #bkg_sigma = mad_std(image)
     mean, median, std = sigma_clipped_stats(image, sigma=3.0)
 
+    #only search sources in a circle with radius <vignette>
     if(vignette < 3):
         image = copy.copy(image)
         sidelength = np.max(image.shape)
@@ -91,7 +92,7 @@ def find_sources(image, vignette=3):
 
 
 def write_wcs_to_hdr(original_filename, wcsprm):
-    """Update the header of the fits fileself.
+    """Update the header of the fits file itself.
 
     Parameters
     ----------
@@ -162,6 +163,7 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None,
         print("pixelscale is completely unrealistic. Will guess")
         print(wcs_pixscale)
         guess = 8.43785734e-05
+        #guess = 6.94444461259988e-05
         wcsprm.pc = [[1,0],[0,1]]
         wcsprm.cdelt = [guess, guess]
         print("Changed pixelscale to {:.3g} deg/arcsec".format(guess))
@@ -207,8 +209,12 @@ def read_additional_info_from_header(wcsprm, hdr, RA_input=None, DEC_input=None,
 
     if (RA_input is not None): #use user input if provided
         wcsprm.crval = [RA_input, wcsprm.crval[1]]
+        wcsprm.crpix = [axis1/2, wcsprm.crpix[1]]
+
     if (DEC_input is not None):
         wcsprm.crval = [wcsprm.crval[0], DEC_input]
+        wcsprm.crpix = [wcsprm.crpix[0], axis2/2, ]
+
 
     if(np.array_equal(wcsprm.crval, [0,0] )):
         print(">>>>>>>>>WARNING")
@@ -344,7 +350,9 @@ def main():
 
 
             image_or = hdul[0].data.astype(float)
-            image = image_or - np.median(image_or)
+            median = np.nanmedian(image_or)
+            image_or[np.isnan(image_or)]=median
+            image = image_or - median
 
         observation = find_sources(image, args.vignette)
         #print(observation)
@@ -357,11 +365,18 @@ def main():
         print(">Info found in the file -- (CRVAl: position of central pixel (CRPIX) on the sky)")
         print(WCS(hdr))
 
+        hdr["NAXIS1"] = image.shape[0]
+        hdr["NAXIS2"] = image.shape[1]
 
-        wcsprm = Wcsprm(hdr.tostring().encode('utf-8')) #everything else gave me errors with python 3
+        #wcsprm = Wcsprm(hdr.tostring().encode('utf-8')) #everything else gave me errors with python 3, seemed to make problems with pc conversios, so i wwitched to the form below
+        wcsprm = WCS(hdr).wcs
+        if(args.verbose):
+            print(WCS(wcsprm.to_header()))
         wcsprm, fov_radius, INCREASE_FOV_FLAG, PIXSCALE_UNCLEAR = read_additional_info_from_header(wcsprm, hdr, args.ra, args.dec, args.projection_ra, args.projection_dec)
         if(args.verbose):
             print(WCS(wcsprm.to_header()))
+
+        #print(wcsprm)
         #wcsprm.pc = [[2, 0],[0,1]]
 
 
@@ -401,6 +416,13 @@ def main():
         #print(hdr["RA"])
         #coord = SkyCoord(hdr["RA"], hdr["DEC"], unit=(u.hourangle, u.deg), frame="icrs")
         coord = SkyCoord(wcsprm.crval[0], wcsprm.crval[1], unit=(u.deg, u.deg), frame="icrs")
+        if(not PIXSCALE_UNCLEAR):
+            if(wcsprm.crpix[0] < 0 or wcsprm.crpix[1] < 0 or wcsprm.crpix[0] > image.shape[0] or wcsprm.crpix[1] > image.shape[1] ):
+                print("central value outside of the image, moving it to the center")
+                coord_radec = wcsprm.p2s([[image.shape[0]/2, image.shape[1]/2]], 0)["world"][0]
+                coord = SkyCoord(coord_radec[0], coord_radec[1], unit=(u.deg, u.deg), frame="icrs")
+                #print(wcsprm)
+
 
 
         #better: put in nice wrapper! with repeated tries and maybe try synchron!
@@ -448,7 +470,6 @@ def main():
             name_parts = fits_image_filename.rsplit('.', 1)
             plt.savefig(name_parts[0]+"_image_before.pdf")
 
-
         ###tranforming to match the sources
         print("---------------------------------")
         print(">Finding the transformation")
@@ -472,7 +493,7 @@ def main():
                     best_score = score
                     fine_transformation = True
             if not fine_transformation:
-                print("Fine transformation did not imporve result so will be discarded.")
+                print("Fine transformation did not improve result so will be discarded.")
             else:
                 print("Fine transformation applied to improve result")
         #register.calculate_rms(observation, catalog_data,wcs)
