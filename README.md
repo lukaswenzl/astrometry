@@ -112,6 +112,7 @@ The full list of parameters can be accessed with astrometry --help
 
 ## Example
 
+For the example file the photometry is already pretty good, so the program only performs a slight correction. After the program finishes plots before and after open. Sources detected in the image are marked blue and the catalog objects are projected on with the world coordinates at the start and finish. If the algorithm converged many sources and catalog objects will overlap, less than 5 clearly indicates that the algorithm failed to converge.
 Input:
 
 ![Input read from the file and loaded from online catalog](sample_images/sample_file_input.png)
