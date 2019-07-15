@@ -287,10 +287,11 @@ def parseArguments():
 
 
     # Print version
-    parser.add_argument("--version", action="version", version='%(prog)s - Version 0.1') #
+    parser.add_argument("--version", action="version", version='%(prog)s - Version 1.0') #
     #changelog
     #version 0.0 proof of concept
     #version 0.1 alpha version
+    #version 1.0 first public version
 
 
     # Parse arguments
@@ -301,7 +302,7 @@ def parseArguments():
 
 def main():
     """Perform astrometry for the given file."""
-    print("Program version: 0.1")
+    print("Program version: 1.0")
     StartTime = datetime.now()
     args = parseArguments()
 
