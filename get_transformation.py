@@ -65,7 +65,7 @@ def simple_offset(observation, catalog, wcsprm, report=""):
     #to find the statistics i have to use the center! otherwise I get selection effects because i only downloaded a small radius
 
     #hist = plt.figure()
-    binwidth= 1 #would there be a reason to make it bigger?
+    binwidth= s.OFFSET_BINWIDTH #would there be a reason to make it bigger than 1?
     bins = [np.arange(min(distances_x), max(distances_x) + binwidth, binwidth), np.arange(min(distances_y), max(distances_y) + binwidth, binwidth)]
 
     #H, x_edges, y_edges,tmp = plt.hist2d(distances_x, distances_y, bins=bins) #to visualize for testing
@@ -464,9 +464,9 @@ def calculate_rms(observation, catalog, wcsprm):
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=5)
     rms = np.sqrt(np.mean(np.square(distances)))
     print("Within 5  pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g} pixel or {:.3g} arcsec".format(px_scale*5,len(obs_x), rms, rms*px_scale))
-    obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=10)
+    obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=s.RMS_PX_THRESHOLD)
     rms = np.sqrt(np.mean(np.square(distances)))
-    print("Within 10 pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g} pixel or {:.3g} arcsec".format(px_scale*10,len(obs_x), rms, rms*px_scale))
+    print("Within {} pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g} pixel or {:.3g} arcsec".format(s.RMS_PX_THRESHOLD, px_scale*s.RMS_PX_THRESHOLD,len(obs_x), rms, rms*px_scale))
 
 
 def find_matches_keep_catalog_info(observation, catalog, wcsprm, threshold=5):

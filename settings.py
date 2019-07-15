@@ -24,14 +24,29 @@ PC2_2_GUESS =1.
 
 
 #source detection
+FWHM = 4. #pixels, seeing in pixel
+N_BRIGHTEST_SOURCES = 200 # only use the XXX brightest sources in the image
+DETECTION_SIGMA_THRESHOLD = 5 #threshold for detection. standard only use detections above 5 sigma
+DETECTION_ABSOLUTE_THRESHOLD = None #set to replace sigma threshold by absolute threshold
 
 
-#peak detection
+#RMS calculation
+RMS_PX_THRESHOLD = 10 #threshold for rms calculation
+
 
 
 #transformation
 USE_N_SOURCES = 30 #number of sources to be used in fast mode
 FASTMODE_THRESHOLD = 0.5 #half the sources in fast mode have to be detected otherwise I try again without fast mode
+OFFSET_BINWIDTH = 1 #binning for peak finding to determine x y offset, default: 1px
+
+# #Hubbe Deep Field:
+# FWHM = 7. #pixels, seeing in pixel
+# N_BRIGHTEST_SOURCES = 300 # only use the XXX brightest sources in the image
+# DETECTION_SIGMA_THRESHOLD = 5 #threshold for detection. standard only use detections above 5 sigma
+# DETECTION_ABSOLUTE_THRESHOLD = 0.05
+# OFFSET_BINWIDTH = 3
+# RMS_PX_THRESHOLD = 20
 
 #query catalog_data
 #MAG_PS = "brightest" #magnitue of PANSTARRS to be used: either: 'gmag', "zmag", .., "brightest"

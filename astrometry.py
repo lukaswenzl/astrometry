@@ -73,8 +73,17 @@ def find_sources(image, vignette=3):
         mask = (x[np.newaxis,:]-sidelength/2)**2 + (y[:,np.newaxis]-sidelength/2)**2 < vignette**2
         image[~mask] = median
 
-    daofind = DAOStarFinder(fwhm=4., threshold=5.*std, brightest=200)
+    #daofind = DAOStarFinder(fwhm=4., threshold=5.*std, brightest=200)
+    #daofind = DAOStarFinder(fwhm=7., threshold=0.6, brightest=400 )
+    daofind = DAOStarFinder(fwhm=s.FWHM, threshold=s.DETECTION_SIGMA_THRESHOLD *std, brightest=s.N_BRIGHTEST_SOURCES )
+    if(s.DETECTION_ABSOLUTE_THRESHOLD is not None):
+        daofind = DAOStarFinder(fwhm=s.FWHM, threshold=s.DETECTION_ABSOLUTE_THRESHOLD, brightest=s.N_BRIGHTEST_SOURCES )
+
+
+
+
     sources = daofind(image)
+    print("REACHED")
     for col in sources.colnames:
         sources[col].info.format = '%.8g'  # for consistent table output
 
@@ -370,6 +379,7 @@ def main():
 
         #wcsprm = Wcsprm(hdr.tostring().encode('utf-8')) #everything else gave me errors with python 3, seemed to make problems with pc conversios, so i wwitched to the form below
         wcsprm = WCS(hdr).wcs
+        wcsprm_original = WCS(hdr).wcs
         if(args.verbose):
             print(WCS(wcsprm.to_header()))
         wcsprm, fov_radius, INCREASE_FOV_FLAG, PIXSCALE_UNCLEAR = read_additional_info_from_header(wcsprm, hdr, args.ra, args.dec, args.projection_ra, args.projection_dec)
@@ -519,7 +529,33 @@ def main():
             print("moved scaling info to CDelt")
             print(WCS(wcsprm.to_header()))
 
-
+        #WCS difference before and after
+        print("> Compared to the input the Wcs was changed by: ")
+        scales_original = utils.proj_plane_pixel_scales(WCS(hdr))
+        print("WCS got scaled by {} in x direction and {} in y direction".format(scales[0]/scales_original[0], scales[1]/scales_original[1]))
+        #sources:
+        #https://math.stackexchange.com/questions/2113634/comparing-two-rotation-matrices
+        #https://stackoverflow.com/questions/2827393/angles-between-two-n-dimensional-vectors-in-python/13849249#13849249
+        def unit_vector(vector):
+            """ Returns the unit vector of the vector.  """
+            return vector / max(np.linalg.norm(vector), 1e-10)
+        def matrix_angle( B, A ):
+            """ comment cos between vectors or matrices """
+            Aflat = A.reshape(-1)
+            Aflat = unit_vector(Aflat)
+            Bflat = B.reshape(-1)
+            Bflat = unit_vector(Bflat)
+            #return np.arccos((np.dot( Aflat, Bflat ) / max( np.linalg.norm(Aflat) * np.linalg.norm(Bflat), 1e-10 )))
+            return np.arccos(np.clip(np.dot(Aflat, Bflat), -1.0, 1.0))
+        #print(matrix_angle(wcsprm.get_pc(), wcsprm_original.get_pc()) /2/np.pi*360)
+        rotation_angle = matrix_angle(wcsprm.get_pc(), wcsprm_original.get_pc()) /2/np.pi*360
+        if((wcsprm.get_pc() @ wcsprm_original.get_pc() )[0,1] > 0):
+            text = "counterclockwise"
+        else:
+            text = "clockwise"
+        print("Rotation of WCS by an angle of {} deg ".format(rotation_angle)+text)
+        old_central_pixel = wcsprm_original.s2p([wcsprm.crval], 0)["pixcrd"][0]
+        print("x offset: {} px, y offset: {} px ".format(wcsprm.crpix[0]- old_central_pixel[0], wcsprm.crpix[1]- old_central_pixel[1]))
 
 
         #check final figure
