@@ -9,6 +9,7 @@ sample_images/**
 testing/
 eduardo_test_files/
 melanie_test_files/
+presentation/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

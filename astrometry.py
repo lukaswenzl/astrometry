@@ -261,7 +261,7 @@ def parseArguments():
 
     # Positional mandatory arguments
     parser.add_argument("input", nargs='+',help="Input Image with .fits ending. A folder or multiple Images also work", type=str)
-    parser.add_argument("-c", "--catalog", help="Catalog to use for position reference ('PS' or 'GAIA')", type=str, default="PS")
+    parser.add_argument("-c", "--catalog", help="Catalog to use for position reference ('PS', '2MASS' or 'GAIA')", type=str, default="PS")
 
     parser.add_argument("-s", "--save_images", help="Set True to create _image_before.pdf and _image_after.pdf", type=bool, default=False)
     parser.add_argument("-p", "--show_images", help="Set False to not have the plots pop up.", type=bool, default=True)
@@ -516,13 +516,15 @@ def main():
 
         from astropy.wcs import utils
         scales = utils.proj_plane_pixel_scales(wcs)
+        print(scales)
         cdelt = wcsprm.get_cdelt()
+        print(cdelt)
         scale_ratio = scales/cdelt
         #print(scale_ratio)
         pc = np.array(wcsprm.get_pc())
         pc[0,0] = pc[0,0]/scale_ratio[0]
-        pc[1,0] = pc[1,0]/scale_ratio[0]
-        pc[0,1] = pc[0,1]/scale_ratio[1]
+        pc[1,0] = pc[1,0]/scale_ratio[1]
+        pc[0,1] = pc[0,1]/scale_ratio[0]
         pc[1,1] = pc[1,1]/scale_ratio[1]
         wcsprm.pc = pc
         wcsprm.cdelt = scales

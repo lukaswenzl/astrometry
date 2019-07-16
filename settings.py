@@ -11,16 +11,16 @@ written in python 3
 ###########################
 #settings
 #calibration upper and lower limit
-FOV_MAX= 10 #arcmin (Field of View)
-FOV_MIN= 2 #arcmin (Field of View)
-
-#WCS initial guess if no info in header or wrong info in header
-CDELT1_GUESS = -8.0000000000000E-5#-5!!!! #about 0.288 arcsec per pixel
-CDELT2_GUESS = 8.0000000000003E-5#-5!!!
-PC1_1_GUESS =1. #no rotation or scaling
-PC1_2_GUESS =0.
-PC2_1_GUESS=0.
-PC2_2_GUESS =1.
+# FOV_MAX= 10 #arcmin (Field of View)
+# FOV_MIN= 2 #arcmin (Field of View)
+#
+# #WCS initial guess if no info in header or wrong info in header (currently hardcoded)
+# CDELT1_GUESS = -8.0000000000000E-5#-5!!!! #about 0.288 arcsec per pixel
+# CDELT2_GUESS = 8.0000000000003E-5#-5!!!
+# PC1_1_GUESS =1. #no rotation or scaling
+# PC1_2_GUESS =0.
+# PC2_1_GUESS=0.
+# PC2_2_GUESS =1.
 
 
 #source detection
