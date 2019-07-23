@@ -24,7 +24,7 @@ Apart from standard packages, this package needs astroquery, astropy and photuti
 pip install astroquery astropy photutils pandas
 ```
 
-Standard packages that are required: matplotlib pandas numpy
+Standard packages that are required: matplotlib pandas numpy scipy
 
 ### Installing
 
