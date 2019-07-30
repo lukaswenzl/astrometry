@@ -107,7 +107,7 @@ def rotate(wcsprm, rot):
     wcsprm.pc = pc_rotated
     return wcsprm
 
-def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=False, report_global="", INCREASE_FOV_FLAG=False):
+def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=False, report_global="", INCREASE_FOV_FLAG=False, silent=False):
     """Use simple_offset(...) but with trying 0,90,180,270 rotation.
 
     Parameters
@@ -146,14 +146,14 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
         print("offset_with_orientation, seaching for offset while considering 0,90,180,270 rotations")
         if(fast):
             print("running in fast mode")
-    # rotations = [ [[1,0],[0,1]], [[-1,0],[0,-1]], #already checking for reflections with the scaling and general rotations
-    #               [[-1,0],[0,1]], [[1,0],[0,-1]],
-    #               [[0,1],[1,0]], [[0,-1],[-1,0]],
-    #               [[0,-1],[1,0]], [[0,1],[-1,0]],
-    #             ]
-    rotations = [ [[1,0],[0,1]], [[-1,0],[0,-1]],
+    rotations = [ [[1,0],[0,1]], [[-1,0],[0,-1]], #already checking for reflections with the scaling and general rotations, but in case rot_scale is of it is nice to have
+                  [[-1,0],[0,1]], [[1,0],[0,-1]],
+                  [[0,1],[1,0]], [[0,-1],[-1,0]],
                   [[0,-1],[1,0]], [[0,1],[-1,0]],
                 ]
+    # rotations = [ [[1,0],[0,1]], [[-1,0],[0,-1]],
+    #               [[0,-1],[1,0]], [[0,1],[-1,0]],
+    #             ]
     wcsprm_global = copy.copy(wcsprm)
     results = []
     for rot in rotations:
@@ -185,7 +185,8 @@ def offset_with_orientation(observation, catalog, wcsprm, verbose=True, fast=Fal
         print(report)
         print("-----------------------------")
     off = wcsprm.crpix - wcsprm_global.crpix
-    print("Found offset {:.3g} in x direction and {:.3g} in y direction".format(off[0], off[1]))
+    if(not silent):
+        print("Found offset {:.3g} in x direction and {:.3g} in y direction".format(off[0], off[1]))
 
     return wcsprm, signal, report
 
@@ -454,6 +455,7 @@ def get_scaling_and_rotation(observation, catalog, wcsprm, scale_guessed, verbos
     return wcsprm_new
 
 def calculate_rms(observation, catalog, wcsprm):
+    """Calculate the root mean square deviation of the astrometry fit"""
     #finding pixel scale
     on_sky = wcsprm.p2s([[0,0],[1,1]], 0)["world"]
     px_scale = np.sqrt((on_sky[0,0]-on_sky[1,0])**2+(on_sky[0,1]-on_sky[1,1])**2)
@@ -467,7 +469,7 @@ def calculate_rms(observation, catalog, wcsprm):
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=s.RMS_PX_THRESHOLD)
     rms = np.sqrt(np.mean(np.square(distances)))
     print("Within {} pixel or {:.3g} arcsec {} sources where matched. The rms is {:.3g} pixel or {:.3g} arcsec".format(s.RMS_PX_THRESHOLD, px_scale*s.RMS_PX_THRESHOLD,len(obs_x), rms, rms*px_scale))
-
+    return {"radius_px":s.RMS_PX_THRESHOLD, "matches":len(obs_x), "rms":rms}
 
 def find_matches_keep_catalog_info(observation, catalog, wcsprm, threshold=5):
     catalog_on_sensor = wcsprm.s2p(catalog[["ra", "dec"]], 1)

@@ -10,6 +10,7 @@ testing/
 eduardo_test_files/
 melanie_test_files/
 presentation/
+ntt_run/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

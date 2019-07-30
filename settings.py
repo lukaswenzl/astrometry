@@ -24,9 +24,8 @@ written in python 3
 
 
 #source detection
-FWHM = 4. #pixels, seeing in pixel
+FWHM = 4. #pixels, seeing in pixel: standard:4
 N_BRIGHTEST_SOURCES = 200 # only use the XXX brightest sources in the image
-DETECTION_SIGMA_THRESHOLD = 5 #threshold for detection. standard only use detections above 5 sigma
 DETECTION_ABSOLUTE_THRESHOLD = None #set to replace sigma threshold by absolute threshold
 
 
