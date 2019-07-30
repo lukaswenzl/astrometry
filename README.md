@@ -40,6 +40,9 @@ With this, you are all set. If you want to run astrometry from anywhere just ins
 pip install -e PATH/TO/CLONED/GITHUB
 ```
 
+## Changelog
+version 1.2: now addes header keywords. Does not write the result if the fit failed and has more options. It also tries the fit without considering scaling and general rotations first and goes back in case that failes. 
+
 ## How to use it
 
 Without installing you have to be in the cloned git folder and then you can run
