@@ -41,7 +41,7 @@ pip install -e PATH/TO/CLONED/GITHUB
 ```
 
 ## Changelog
-version 1.2: now addes header keywords. Does not write the result if the fit failed and has more options. It also tries the fit without considering scaling and general rotations first and goes back in case that failes. 
+version 1.2: now addes header keywords. Does not write the result if the fit failed and has more options. It also tries the fit without considering scaling and general rotations first and goes back in case that failes. Also added the ability to run as a script with import astrometry
 
 ## How to use it
 
