@@ -145,6 +145,7 @@ def parseArguments():
     #changelog
     #version 0.0 proof of concept
     #version 0.1 alpha version
+    #version 0.2 bugfixes, 5sigma magnitue now more consistent and panstarrs data handling is more robust
 
 
     # Parse arguments
@@ -155,7 +156,7 @@ def parseArguments():
 
 def main():
     """Perform photometry for the given file."""
-    print("Program version: 0.1")
+    print("Program version: 0.2")
     StartTime = datetime.now()
     args = parseArguments()
 
@@ -267,7 +268,7 @@ def main():
             #print(coordinats_obs)
             from astropy.coordinates import match_coordinates_sky
             idx, d2d, d3d = match_coordinates_sky(c_unknown, c_obs)
-            cand_dups = d2d < 6*u.arcsec
+            cand_dups = d2d < 5*u.arcsec
 
             mean, median, std = sigma_clipped_stats(image, sigma=3.0)
             ap_area= CircularAperture((2,2), r=aperture)
@@ -295,7 +296,7 @@ def main():
             ###########################
             mag = 0
             if(cand_dups.sum() > 0):
-                print("Position was given. Found {} sources in a 6 arcsec radius. Here is the magnitude:".format(cand_dups.sum()))
+                print("Position was given. Found {} sources in a 5 arcsec radius. Here is the magnitude:".format(cand_dups.sum()))
                 print(new_magnitudes[idx])
                 print("----")
 
@@ -349,7 +350,7 @@ def main():
                 print("We get a signal to noise of {} for the fixed aperture".format(noise))
                 mag = forced_mag
                 mag_err = 2.5 * np.log10(1+ 1/noise)
-                text = "forced photometry in {} band,\n {:.4g} +- {:.2g} {}mag, {:.3g} S/N \n 5 sig limiting mag is {:.4g} ".format(args.band, mag, mag_err,mag_sys, noise, sig5_limiting_mag)
+                text = "forced photometry in {} band,\n {:.4g} +- {:.2g} {}mag, {:.3g} S/N \n 5 sig limiting mag is {:.4g} ".format(args.band, mag, mag_err,mag_sys, noise, sig5_limiting_mag_apertures)
 
 
         else:
@@ -384,7 +385,7 @@ def main():
             plt.title("Photometric calibration with {} sources from {}".format(obs_matched.shape[0], catalog_name))
             plt.plot(cat_matched[band_name].values,ZP, "o", markersize=20, label="catalog objects")
             if(MAG_CALC):
-                plt.ylim(np.min(ZP)-1, np.max(ZP)+1)
+                plt.ylim(np.nanmin(ZP)-1, np.nanmax(ZP)+1)
             else:
                 plt.ylim(10,30)
             if(mag):
@@ -400,7 +401,7 @@ def main():
 
             plt.figure()
             plt.plot(cat_matched[band_name].values,ZP, "o", markersize=20, label="catalog objects")
-            plt.ylim(np.min(ZP)-1, np.max(ZP)+1)
+            plt.ylim(np.nanmin(ZP)-1, np.nanmax(ZP)+1)
             if(mag):
                 plt.axvline(x=mag, linewidth=4, color="green", label="target")
             plt.xlabel("catalog "+ band_name+" magnitude")
