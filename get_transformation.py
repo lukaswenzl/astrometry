@@ -533,7 +533,7 @@ def find_matches(observation, catalog, wcsprm, threshold=5):
 
 
 
-def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True):
+def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True, compare_threshold=3):
     """Final improvement of registration. This requires that the wcs is already accurate to a few pixels.
 
     Parameters
@@ -557,7 +557,7 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True)
     wcsprm_original = wcsprm
     wcsprm = copy.copy(wcsprm)
 
-    if(threshold == 20):
+    if(threshold == 20 or threshold == 100):
         observation = observation.nlargest(5, "aperture_sum")
         #print("using 5 brightest sources")
     obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=threshold)
@@ -593,7 +593,7 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True)
         return wcsprm_original,0
 
     #need to recalculate positions
-    obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=10)
+    obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=threshold)
     if(len(obs_x)<4):
         return wcsprm_original,0
 
@@ -605,7 +605,7 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True)
     new_central_pixel = [current_central_pixel[0] + x_shift, current_central_pixel[1] +y_shift]
     wcsprm.crpix = new_central_pixel
 
-    obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=3)
+    obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=compare_threshold)
     rms = np.sqrt(np.mean(np.square(distances)))
     score = len(obs_x)/(rms+10) #number of matches within 3 pixel over rms+1 (so its bigger than 0)
     return wcsprm, score

@@ -128,7 +128,7 @@ def find_sources(image, vignette=3, sigma_threshold_for_source_detection=5):
     return  observation
 
 
-def write_wcs_to_hdr(original_filename, wcsprm, report):
+def write_wcs_to_hdr(original_filename, wcsprm, report, hdul_idx=0):
     """Update the header of the fits file itself.
 
     Parameters
@@ -141,7 +141,7 @@ def write_wcs_to_hdr(original_filename, wcsprm, report):
     """
     with fits.open(original_filename) as hdul:
 
-        hdu = hdul[0]
+        hdu = hdul[hdul_idx]
         hdr_file = hdu.header
 
         #new_header_info = wcs.to_header()
@@ -166,7 +166,7 @@ def write_wcs_to_hdr(original_filename, wcsprm, report):
 
 
         hdu.header = hdr_file
-        hdul[0] = hdu
+        hdul[hdul_idx] = hdu
         #removing fits ending
         name_parts = original_filename.rsplit('.', 1)
         hdul.writeto(name_parts[0]+'_astro.fits', overwrite=True)
@@ -339,14 +339,17 @@ def parseArguments():
 
     parser.add_argument("-sigma_threshold_for_source_detection", "--sigma_threshold_for_source_detection", help="Sigma threshold for source detection on the image", type=float, default=5)
 
+    parser.add_argument("-high_res", "--high_resolution", help="Set true to indicate higher resolution image like HST to allow larger steps for fine transformation. Default False for smaller telescopes", type=bool, default=False)
+    parser.add_argument("-hdul_idx", "--hdul_idx", help="Index of the image data in the fits file. Default 0", type=int, default=0)
 
     # Print version
-    parser.add_argument("--version", action="version", version='%(prog)s - Version 1.2') #
+    parser.add_argument("--version", action="version", version='%(prog)s - Version 1.3') #
     #changelog
     #version 0.0 proof of concept
     #version 0.1 alpha version
     #version 1.0 first public version
     #version 1.2 included option to not show images
+    #version 1.3 improved support for high resolution images
 
 
     # Parse arguments
@@ -415,12 +418,12 @@ def main():
     for fits_image_filename in fits_image_filenames:
 
         result,_  = astrometry_script(fits_image_filename, catalog=args.catalog, rotation_scaling=0, xy_transformation=args.xy_transformation, fine_transformation=args.fine_transformation,
-        images=images, vignette=args.vignette, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent =args.silent, sigma_threshold_for_source_detection= args.sigma_threshold_for_source_detection)
+        images=images, vignette=args.vignette, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent =args.silent, sigma_threshold_for_source_detection= args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx)
 
         if((not result) and args.rotation_scaling):
             print("Did not converge. Will try again with full rotation and scaling")
             result, _ = astrometry_script(fits_image_filename, catalog=args.catalog, rotation_scaling=args.rotation_scaling, xy_transformation=args.xy_transformation, fine_transformation=args.fine_transformation,
-            images=images, vignette=args.vignette, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent=args.silent, sigma_threshold_for_source_detection=args.sigma_threshold_for_source_detection)
+            images=images, vignette=args.vignette, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent=args.silent, sigma_threshold_for_source_detection=args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx)
 
         if(result):
             print("Astrometry was determined to be good.")
@@ -685,7 +688,7 @@ def main():
         print(not_converged)
     print("-- finished --")
 
-def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transformation=True, fine_transformation=True, images=False, vignette=3, ra=None, dec=None, projection_ra=None, projection_dec=None, verbose=False, save_images=False, ignore_header_rot=False, radius=-1., save_bad_result=False, silent=False, sigma_threshold_for_source_detection=5):
+def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transformation=True, fine_transformation=True, images=False, vignette=3, ra=None, dec=None, projection_ra=None, projection_dec=None, verbose=False, save_images=False, ignore_header_rot=False, radius=-1., save_bad_result=False, silent=False, sigma_threshold_for_source_detection=5, high_res = False, hdul_idx=0):
     """Perform astrometry for the given file. Scripable version"""
     #print("Program version: 1.2")
 
@@ -701,12 +704,12 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         #print(hdul.info())
         #print(hdul[0].header)
 
-        hdu = hdul[0]
+        hdu = hdul[hdul_idx]
         #hdu.verify('fix')
         hdr = hdu.header
 
 
-        image_or = hdul[0].data.astype(float)
+        image_or = hdul[hdul_idx].data.astype(float)
         median = np.nanmedian(image_or)
         image_or[np.isnan(image_or)]=median
         image = image_or - median
@@ -810,18 +813,28 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         wcsprm,_,_ = register.offset_with_orientation(observation, catalog_data, wcsprm, fast=False , INCREASE_FOV_FLAG=INCREASE_FOV_FLAG, verbose= verbose, silent=silent)
 
     #correct subpixel error
-    obs_x, obs_y, cat_x, cat_y, distances = register.find_matches(observation, catalog_data, wcsprm, threshold=3)
-    rms = np.sqrt(np.mean(np.square(distances)))
-    best_score = len(obs_x)/(rms+10) #start with current best score
-    fine_transformation = False
+    compare_threshold = 3
+    if(high_res):
+        compare_threshold = 100
+    obs_x, obs_y, cat_x, cat_y, distances = register.find_matches(observation, catalog_data, wcsprm, threshold=compare_threshold)#3
+    if (len(distances) == 0): #meaning the list is empty
+        best_score = 0
+    else:
+        rms = np.sqrt(np.mean(np.square(distances)))
+        best_score = len(obs_x)/(rms+10) #start with current best score
+    fine_transformation_success = False
     if(fine_transformation):
-        for i in [2,3,5,8,10,6,4, 20,2,1,0.5]:
-            wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i)
+        print("Finding scaling and rotation")
+        lis = [2,3,5,8,10,6,4, 20,2,1,0.5]
+        if(high_res):
+            lis = [200,300,100,150,80,40,70, 20, 100, 30,9,5]
+        for i in lis:
+            wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i, compare_threshold=compare_threshold)
             if(score> best_score):
                 wcsprm = wcsprm_new
                 best_score = score
-                fine_transformation = True
-        if not fine_transformation:
+                fine_transformation_success = True
+        if not fine_transformation_success:
             if(not silent):
                 print("Fine transformation did not improve result so will be discarded.")
         else:
@@ -906,7 +919,7 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
     report["matches"] = dic_rms["matches"]
     report["match_radius"] = dic_rms["radius_px"]
     if(converged or save_bad_result):
-        write_wcs_to_hdr(fits_image_filename, wcsprm, report)
+        write_wcs_to_hdr(fits_image_filename, wcsprm, report, hdul_idx=hdul_idx)
     if(images):
         plt.show()
 
