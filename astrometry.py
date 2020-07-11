@@ -71,7 +71,7 @@ def determine_if_fit_converged(dic_rms, catalog, observation, wcsprm, NAXIS1, NA
 
     return converged
 
-def find_sources(image, vignette=3, cutouts=None, sigma_threshold_for_source_detection=5):
+def find_sources(image, vignette=3,vignette_rectangular=1., cutouts=None, sigma_threshold_for_source_detection=5):
     """Find surces in the image. Uses DAOStarFinder with symmetric gaussian kernels. Only uses 5 sigma detections. It only gives the 200 brightest sources or less.
     This has to work well for the later calculations to work. Possible issues: low signal to noise image, gradient in the background
 
@@ -91,20 +91,36 @@ def find_sources(image, vignette=3, cutouts=None, sigma_threshold_for_source_det
     #find sources
     #bkg_sigma = mad_std(image)
     mean, median, std = sigma_clipped_stats(image, sigma=3.0)
-
-    #only search sources in a circle with radius <vignette>
+    image = copy.copy(image)
+    # #only search sources in a circle with radius <vignette>
     if(vignette < 3):
-        image = copy.copy(image)
         sidelength = np.max(image.shape)
         x = np.arange(0, image.shape[1])
         y = np.arange(0, image.shape[0])
         vignette = vignette * sidelength/2
         mask = (x[np.newaxis,:]-sidelength/2)**2 + (y[:,np.newaxis]-sidelength/2)**2 < vignette**2
         image[~mask] = median
+
+    #ignore a fraction of the image at the corner
+    if(vignette_rectangular < 1.):
+        sidelength_x = image.shape[1]
+        sidelength_y = image.shape[0]
+        cutoff_left = (1.-vignette_rectangular)*sidelength_x
+        cutoff_right = vignette_rectangular*sidelength_x
+        cutoff_bottom = (1.-vignette_rectangular)*sidelength_y
+        cutoff_top = vignette_rectangular*sidelength_y
+        x = np.arange(0, image.shape[1])
+        y = np.arange(0, image.shape[0])
+        left =    x[np.newaxis,:] > cutoff_left 
+        right =   x[np.newaxis,:] < cutoff_right
+        bottom =  y[:,np.newaxis] > cutoff_bottom
+        top =     y[:,np.newaxis] < cutoff_top
+        mask = (left*bottom)*(right*top)
+        image[~mask] = median
+
     
     #cut out rectangular regions of the image, [(xstart, xend, ystart, yend)]
     if(cutouts != None):
-        image = copy.copy(image)
         sidelength = np.max(image.shape)
         x = np.arange(0, image.shape[1])
         y = np.arange(0, image.shape[0])
@@ -346,6 +362,8 @@ def parseArguments():
     parser.add_argument("-fine", "--fine_transformation", help="By default a fine transformation is applied in the end. You can try deactivating this part by setting it to 0", type=int, default=1)
 
     parser.add_argument("-vignette", "--vignette", help="Do not use corner of the image. Only use the data in a circle around the center with certain radius. Default: not used. Set to 1 for circle that touches the sides. Less to cut off more", type=float, default=3)
+    parser.add_argument("-vignette_rec", "--vignette_rectangular", help="Do not use corner of the image. Cutoff 1- <value> on each side of the image. Default: not used. 1 uses the full image, 0.9 cuts 10% on each side", type=float, default=1.)
+
     parser.add_argument("-cutout", "--cutout", help="Cutout bad recangle from Image. Specify corners in pixel as -cutout xstart xend ystart yend. You can give multiple cutouts ", nargs='+',action="append", type=int)
 
     parser.add_argument("-ignore_header_rot", "--ignore_header_rot", help="Set to 0 to ignore rotation information contained in header", type=int, default=0)
@@ -434,12 +452,12 @@ def main():
     for fits_image_filename in fits_image_filenames:
 
         result,_  = astrometry_script(fits_image_filename, catalog=args.catalog, rotation_scaling=0, xy_transformation=args.xy_transformation, fine_transformation=args.fine_transformation,
-        images=images, vignette=args.vignette, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent =args.silent, sigma_threshold_for_source_detection= args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx)
+        images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent =args.silent, sigma_threshold_for_source_detection= args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx)
 
         if((not result) and args.rotation_scaling):
             print("Did not converge. Will try again with full rotation and scaling")
             result, _ = astrometry_script(fits_image_filename, catalog=args.catalog, rotation_scaling=args.rotation_scaling, xy_transformation=args.xy_transformation, fine_transformation=args.fine_transformation,
-            images=images, vignette=args.vignette,cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent=args.silent, sigma_threshold_for_source_detection=args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx)
+            images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent=args.silent, sigma_threshold_for_source_detection=args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx)
 
         if(result):
             print("Astrometry was determined to be good.")
@@ -704,7 +722,7 @@ def main():
         print(not_converged)
     print("-- finished --")
 
-def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transformation=True, fine_transformation=True, images=False, vignette=3,cutouts=None, ra=None, dec=None, projection_ra=None, projection_dec=None, verbose=False, save_images=False, ignore_header_rot=False, radius=-1., save_bad_result=False, silent=False, sigma_threshold_for_source_detection=5, high_res = False, hdul_idx=0):
+def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transformation=True, fine_transformation=True, images=False, vignette=3,vignette_rectangular=1., cutouts=None, ra=None, dec=None, projection_ra=None, projection_dec=None, verbose=False, save_images=False, ignore_header_rot=False, radius=-1., save_bad_result=False, silent=False, sigma_threshold_for_source_detection=5, high_res = False, hdul_idx=0):
     """Perform astrometry for the given file. Scripable version"""
     #print("Program version: 1.2")
 
@@ -730,7 +748,7 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         image_or[np.isnan(image_or)]=median
         image = image_or - median
 
-    observation = find_sources(image, vignette,cutouts, sigma_threshold_for_source_detection)
+    observation = find_sources(image, vignette,vignette_rectangular,cutouts, sigma_threshold_for_source_detection)
     #print(observation)
 
     positions = (observation['xcenter'], observation['ycenter'])
