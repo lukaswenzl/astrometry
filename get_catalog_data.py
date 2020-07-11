@@ -18,7 +18,7 @@ from astroquery.vizier import Vizier
 
 from astropy.coordinates import SkyCoord
 from astropy import units as u
-#import pandas as pd
+import pandas as pd
 
 #import settings as s
 
@@ -229,7 +229,13 @@ def get_2MASS_photometry_data(ra=0, dec=0, radius=60, coord=None, band="z"):
 
     return catalog_data, band_name, "2MASS", "VEGA"
 
-
+def get_file_data(filename):
+    """Read catalog data from local file. At the minimum the columns ra, dec and mag are needed.
+    The magnitudes do not need to be calibrated only ordered.
+    """
+    catalog_data = pd.read_csv(filename)
+    print("Found {} sources in file: {}".format(catalog_data.shape[0], filename))
+    return catalog_data
 
 def get_data(pos, radius, source):
     """Query databases.
@@ -260,6 +266,9 @@ def get_data(pos, radius, source):
 
     if(source == "2MASS" or source == "TWOMASS" or source == "2mass" or source =="twomass"):
         return get_2MASS_data(pos, radius)
+
+    print("trying to read local file")
+    return get_file_data(source)
 
 def get_photometry_data(pos, radius, band, source="auto"):
     """Query databases.

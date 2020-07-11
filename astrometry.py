@@ -338,7 +338,7 @@ def parseArguments():
 
     # Positional mandatory arguments
     parser.add_argument("input", nargs='+',help="Input Image with .fits ending. A folder or multiple Images also work", type=str)
-    parser.add_argument("-c", "--catalog", help="Catalog to use for position reference ('PS', '2MASS' or 'GAIA')", type=str, default="PS")
+    parser.add_argument("-c", "--catalog", help="Catalog to use for position reference ('PS', '2MASS' or 'GAIA') or name of local file", type=str, default="PS")
 
     parser.add_argument("-s", "--save_images", help="Set True to create _image_before.pdf and _image_after.pdf", type=bool, default=False)
     parser.add_argument("-p", "--images", help="Set 0 to not create the plots.", type=int, default=1)
@@ -375,6 +375,7 @@ def parseArguments():
 
     parser.add_argument("-high_res", "--high_resolution", help="Set true to indicate higher resolution image like HST to allow larger steps for fine transformation. Default False for smaller telescopes", type=bool, default=False)
     parser.add_argument("-hdul_idx", "--hdul_idx", help="Index of the image data in the fits file. Default 0", type=int, default=0)
+    parser.add_argument("-filename_for_sources", "--filename_for_sources", help="Save the sky positions of the sources to file to calibrate another image with it. Set to the filename without extension. Default: not used", type=str, default=None)
 
     # Print version
     parser.add_argument("--version", action="version", version='%(prog)s - Version 1.3') #
@@ -452,12 +453,12 @@ def main():
     for fits_image_filename in fits_image_filenames:
 
         result,_  = astrometry_script(fits_image_filename, catalog=args.catalog, rotation_scaling=0, xy_transformation=args.xy_transformation, fine_transformation=args.fine_transformation,
-        images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent =args.silent, sigma_threshold_for_source_detection= args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx)
+        images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent =args.silent, sigma_threshold_for_source_detection= args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx, filename_for_sources=args.filename_for_sources)
 
         if((not result) and args.rotation_scaling):
             print("Did not converge. Will try again with full rotation and scaling")
             result, _ = astrometry_script(fits_image_filename, catalog=args.catalog, rotation_scaling=args.rotation_scaling, xy_transformation=args.xy_transformation, fine_transformation=args.fine_transformation,
-            images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent=args.silent, sigma_threshold_for_source_detection=args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx)
+            images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent=args.silent, sigma_threshold_for_source_detection=args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx, filename_for_sources=args.filename_for_sources)
 
         if(result):
             print("Astrometry was determined to be good.")
@@ -722,7 +723,7 @@ def main():
         print(not_converged)
     print("-- finished --")
 
-def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transformation=True, fine_transformation=True, images=False, vignette=3,vignette_rectangular=1., cutouts=None, ra=None, dec=None, projection_ra=None, projection_dec=None, verbose=False, save_images=False, ignore_header_rot=False, radius=-1., save_bad_result=False, silent=False, sigma_threshold_for_source_detection=5, high_res = False, hdul_idx=0):
+def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transformation=True, fine_transformation=True, images=False, vignette=3,vignette_rectangular=1., cutouts=None, ra=None, dec=None, projection_ra=None, projection_dec=None, verbose=False, save_images=False, ignore_header_rot=False, radius=-1., save_bad_result=False, silent=False, sigma_threshold_for_source_detection=5, high_res = False, hdul_idx=0, filename_for_sources=None):
     """Perform astrometry for the given file. Scripable version"""
     #print("Program version: 1.2")
 
@@ -787,7 +788,7 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
     catalog_data = query.get_data(coord, radius, catalog)
     report["catalog"] = catalog
     #reference = reference.query("mag <20")
-
+    
 
     if(catalog == "GAIA" and catalog_data.shape[0] < 5):
         if(not silent):
@@ -954,6 +955,16 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
     report["match_radius"] = dic_rms["radius_px"]
     if(converged or save_bad_result):
         write_wcs_to_hdr(fits_image_filename, wcsprm, report, hdul_idx=hdul_idx)
+        if(filename_for_sources != None):
+            wcs =WCS(wcsprm.to_header())
+            observation_on_sky = wcs.wcs_pix2world(observation[["xcenter","ycenter"]], 1)
+            #catalog_from_obs = np.zeros(observation_on_sky.shape[0], dtype={'names':('ra', 'dec', 'aperture_sum'),'formats':('f8', 'f8', 'f8')})
+            catalog_from_obs = pd.DataFrame()
+            catalog_from_obs["ra"]= observation_on_sky[:,0]
+            catalog_from_obs["dec"]= observation_on_sky[:,1]
+            catalog_from_obs["aperture_sum"]= observation["aperture_sum"]
+            catalog_from_obs["mag"]= -1.* observation["aperture_sum"]#this is fine since we only use the mag to order the sources!
+            catalog_from_obs.to_csv(filename_for_sources+".csv")
     if(images):
         plt.show()
 
