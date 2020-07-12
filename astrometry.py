@@ -71,7 +71,7 @@ def determine_if_fit_converged(dic_rms, catalog, observation, wcsprm, NAXIS1, NA
 
     return converged
 
-def find_sources(image, vignette=3,vignette_rectangular=1., cutouts=None, sigma_threshold_for_source_detection=5):
+def find_sources(image, vignette=3,vignette_rectangular=1., cutouts=None,sigma_threshold_for_source_detection=5, only_rectangle=None, FWHM=4):
     """Find surces in the image. Uses DAOStarFinder with symmetric gaussian kernels. Only uses 5 sigma detections. It only gives the 200 brightest sources or less.
     This has to work well for the later calculations to work. Possible issues: low signal to noise image, gradient in the background
 
@@ -133,11 +133,24 @@ def find_sources(image, vignette=3,vignette_rectangular=1., cutouts=None, sigma_
             mask = (left*bottom)*(right*top)
             image[mask] = median
 
+    #use only_rectangle within image format: (xstart, xend, ystart, yend)
+    if(only_rectangle != None):
+        sidelength = np.max(image.shape)
+        x = np.arange(0, image.shape[1])
+        y = np.arange(0, image.shape[0])
+        print("only using {}".format(only_rectangle))
+        left =    x[np.newaxis,:] > only_rectangle[0] 
+        right =   x[np.newaxis,:] < only_rectangle[1] 
+        bottom =  y[:,np.newaxis] > only_rectangle[2]
+        top =     y[:,np.newaxis] < only_rectangle[3]
+        mask = (left*bottom)*(right*top)
+        image[~mask] = median
+
     #daofind = DAOStarFinder(fwhm=4., threshold=5.*std, brightest=200)
     #daofind = DAOStarFinder(fwhm=7., threshold=0.6, brightest=400 )
-    daofind = DAOStarFinder(fwhm=s.FWHM, threshold=sigma_threshold_for_source_detection *std, brightest=s.N_BRIGHTEST_SOURCES )
+    daofind = DAOStarFinder(fwhm=FWHM, threshold=sigma_threshold_for_source_detection *std, brightest=s.N_BRIGHTEST_SOURCES )
     if(s.DETECTION_ABSOLUTE_THRESHOLD is not None):
-        daofind = DAOStarFinder(fwhm=s.FWHM, threshold=s.DETECTION_ABSOLUTE_THRESHOLD, brightest=s.N_BRIGHTEST_SOURCES )
+        daofind = DAOStarFinder(fwhm=FWHM, threshold=s.DETECTION_ABSOLUTE_THRESHOLD, brightest=s.N_BRIGHTEST_SOURCES )
 
 
 
@@ -372,6 +385,7 @@ def parseArguments():
     parser.add_argument("-save_bad_result", "--save_bad_result", help="Save result even when it is considered bad by setting this to 1. By default bad results will not be saved", type=int, default=0)
 
     parser.add_argument("-sigma_threshold_for_source_detection", "--sigma_threshold_for_source_detection", help="Sigma threshold for source detection on the image", type=float, default=5)
+    parser.add_argument("-seeing", "--seeing", help="Average FWHM of sources. Default 4px", type=float, default=4)
 
     parser.add_argument("-high_res", "--high_resolution", help="Set true to indicate higher resolution image like HST to allow larger steps for fine transformation. Default False for smaller telescopes", type=bool, default=False)
     parser.add_argument("-hdul_idx", "--hdul_idx", help="Index of the image data in the fits file. Default 0", type=int, default=0)
@@ -385,7 +399,7 @@ def parseArguments():
     #version 1.0 first public version
     #version 1.2 included option to not show images
     #version 1.3 improved support for high resolution images
-
+    #version 1.4 bugfixes and ability to calibrate based on another image
 
     # Parse arguments
     args = parser.parse_args()
@@ -453,12 +467,12 @@ def main():
     for fits_image_filename in fits_image_filenames:
 
         result,_  = astrometry_script(fits_image_filename, catalog=args.catalog, rotation_scaling=0, xy_transformation=args.xy_transformation, fine_transformation=args.fine_transformation,
-        images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent =args.silent, sigma_threshold_for_source_detection= args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx, filename_for_sources=args.filename_for_sources)
+        images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent =args.silent, sigma_threshold_for_source_detection= args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx, filename_for_sources=args.filename_for_sources, FWHM=args.seeing)
 
         if((not result) and args.rotation_scaling):
             print("Did not converge. Will try again with full rotation and scaling")
             result, _ = astrometry_script(fits_image_filename, catalog=args.catalog, rotation_scaling=args.rotation_scaling, xy_transformation=args.xy_transformation, fine_transformation=args.fine_transformation,
-            images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent=args.silent, sigma_threshold_for_source_detection=args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx, filename_for_sources=args.filename_for_sources)
+            images=images, vignette=args.vignette,vignette_rectangular=args.vignette_rectangular, cutouts=args.cutout, ra=args.ra, dec=args.dec, projection_ra=args.projection_ra, projection_dec=args.projection_dec, verbose=verbose, save_images=args.save_images, ignore_header_rot=args.ignore_header_rot, radius = args.radius, save_bad_result=args.save_bad_result, silent=args.silent, sigma_threshold_for_source_detection=args.sigma_threshold_for_source_detection, high_res=args.high_resolution, hdul_idx=args.hdul_idx, filename_for_sources=args.filename_for_sources, FWHM=args.seeing)
 
         if(result):
             print("Astrometry was determined to be good.")
@@ -723,7 +737,7 @@ def main():
         print(not_converged)
     print("-- finished --")
 
-def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transformation=True, fine_transformation=True, images=False, vignette=3,vignette_rectangular=1., cutouts=None, ra=None, dec=None, projection_ra=None, projection_dec=None, verbose=False, save_images=False, ignore_header_rot=False, radius=-1., save_bad_result=False, silent=False, sigma_threshold_for_source_detection=5, high_res = False, hdul_idx=0, filename_for_sources=None):
+def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transformation=True, fine_transformation=True, images=False, vignette=3,vignette_rectangular=1., cutouts=None, ra=None, dec=None, projection_ra=None, projection_dec=None, verbose=False, save_images=False, ignore_header_rot=False, radius=-1., save_bad_result=False, silent=False, sigma_threshold_for_source_detection=5, high_res = False, hdul_idx=0, filename_for_sources=None, FWHM=4):
     """Perform astrometry for the given file. Scripable version"""
     #print("Program version: 1.2")
 
@@ -749,7 +763,7 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         image_or[np.isnan(image_or)]=median
         image = image_or - median
 
-    observation = find_sources(image, vignette,vignette_rectangular,cutouts, sigma_threshold_for_source_detection)
+    observation = find_sources(image, vignette,vignette_rectangular,cutouts, sigma_threshold_for_source_detection, FWHM=FWHM)
     #print(observation)
 
     positions = (observation['xcenter'], observation['ycenter'])
@@ -863,8 +877,12 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         lis = [2,3,5,8,10,6,4, 20,2,1,0.5]
         if(high_res):
             lis = [200,300,100,150,80,40,70, 20, 100, 30,9,5]
+        skip_rot_scale = True
         for i in lis:
-            wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i, compare_threshold=compare_threshold)
+            wcsprm_new, score = register.fine_transformation(observation, catalog_data, wcsprm, threshold=i, compare_threshold=compare_threshold, skip_rot_scale=skip_rot_scale)
+            if(i == 20):
+                #only allow rot and scaling for the last few tries
+                skip_rot_scale = False
             if(score> best_score):
                 wcsprm = wcsprm_new
                 best_score = score
@@ -917,7 +935,8 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         #return np.arccos((np.dot( Aflat, Bflat ) / max( np.linalg.norm(Aflat) * np.linalg.norm(Bflat), 1e-10 )))
         return np.arccos(np.clip(np.dot(Aflat, Bflat), -1.0, 1.0))
     #print(matrix_angle(wcsprm.get_pc(), wcsprm_original.get_pc()) /2/np.pi*360)
-    rotation_angle = matrix_angle(wcsprm.get_pc(), wcsprm_original.get_pc()) /2/np.pi*360
+    #bugfix: multiplying by cdelt otherwise the calculated angle is off by a tiny bit
+    rotation_angle = matrix_angle(wcsprm.get_pc()@wcsprm.get_cdelt(), wcsprm_original.get_pc()@wcsprm_original.get_cdelt()) /2./np.pi*360.
     if((wcsprm.get_pc() @ wcsprm_original.get_pc() )[0,1] > 0):
         text = "counterclockwise"
     else:

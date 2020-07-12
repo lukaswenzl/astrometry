@@ -533,7 +533,7 @@ def find_matches(observation, catalog, wcsprm, threshold=5):
 
 
 
-def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True, compare_threshold=3):
+def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True, compare_threshold=3, skip_rot_scale=False):
     """Final improvement of registration. This requires that the wcs is already accurate to a few pixels.
 
     Parameters
@@ -585,12 +585,13 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True,
     scaling = np.e**(np.mean(scale_offset))
 
     rot = rotation_matrix(rotation)
-    wcsprm = rotate(wcsprm, rot)
-    if (scaling > 0.9 and scaling < 1.1):
-        wcsprm = scale(wcsprm, scaling)
-    else:
-        #print("fine transformation failed. Scaling calculation failed")
-        return wcsprm_original,0
+    if (not skip_rot_scale):
+        wcsprm = rotate(wcsprm, rot)
+        if (scaling > 0.9 and scaling < 1.1):
+            wcsprm = scale(wcsprm, scaling)
+        else:
+            #print("fine transformation failed. Scaling calculation failed")
+            return wcsprm_original,0
 
     #need to recalculate positions
     obs_x, obs_y, cat_x, cat_y, _ = find_matches(observation, catalog, wcsprm, threshold=threshold)

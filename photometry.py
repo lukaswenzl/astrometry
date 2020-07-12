@@ -141,7 +141,7 @@ def parseArguments():
 
 
     # Print version
-    parser.add_argument("--version", action="version", version='%(prog)s - Version 0.1') #
+    parser.add_argument("--version", action="version", version='%(prog)s - Version 0.2') #
     #changelog
     #version 0.0 proof of concept
     #version 0.1 alpha version
