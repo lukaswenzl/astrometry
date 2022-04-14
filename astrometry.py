@@ -378,7 +378,7 @@ def parseArguments():
     parser.add_argument("-fine", "--fine_transformation", help="By default a fine transformation is applied in the end. You can try deactivating this part by setting it to 0", type=int, default=1)
 
     parser.add_argument("-vignette", "--vignette", help="Do not use corner of the image. Only use the data in a circle around the center with certain radius. Default: not used. Set to 1 for circle that touches the sides. Less to cut off more", type=float, default=3)
-    parser.add_argument("-vignette_rec", "--vignette_rectangular", help="Do not use corner of the image. Cutoff 1- <value> on each side of the image. Default: not used. 1 uses the full image, 0.9 cuts 10% on each side", type=float, default=1.)
+    parser.add_argument("-vignette_rec", "--vignette_rectangular", help="Do not use corner of the image. Cutoff 1- <value> on each side of the image. Default: not used. 1 uses the full image, 0.9 cuts 10%% on each side", type=float, default=1.)
 
     parser.add_argument("-cutout", "--cutout", help="Cutout bad recangle from Image. Specify corners in pixel as -cutout xstart xend ystart yend. You can give multiple cutouts ", nargs='+',action="append", type=int)
 
@@ -395,7 +395,7 @@ def parseArguments():
     parser.add_argument("-filename_for_sources", "--filename_for_sources", help="Save the sky positions of the sources to file to calibrate another image with it. Set to the filename without extension. Default: not used", type=str, default=None)
 
     # Print version
-    parser.add_argument("--version", action="version", version='%(prog)s - Version 1.3') #
+    parser.add_argument("--version", action="version", version='%%(prog)s - Version 1.3') #
     #changelog
     #version 0.0 proof of concept
     #version 0.1 alpha version
