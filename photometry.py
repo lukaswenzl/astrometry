@@ -85,7 +85,10 @@ def find_sources(image, aperture):
         sources[col].info.format = '%.8g'  # for consistent table output
     #print(sources)
 
-    positions = (sources['xcentroid'], sources['ycentroid'])
+    #positions = (sources['xcentroid'], sources['ycentroid'])
+    xcenters = np.array(sources['xcentroid'])
+    ycenters = np.array(sources['ycentroid'])
+    positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
     apertures = CircularAperture(positions, r=aperture)
     phot_table = aperture_photometry(image, apertures)
     for col in phot_table.colnames:
@@ -209,7 +212,10 @@ def main():
         observation = find_sources(image, aperture)
         #print(observation)
 
-        positions = (observation['xcenter'], observation['ycenter'])
+        #positions = (observation['xcenter'], observation['ycenter'])
+        xcenters = np.array(observation['xcenter'])
+        ycenters = np.array(observation['xcenter'])
+        positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
         apertures = CircularAperture(positions, r=4.)
 
 
@@ -272,15 +278,16 @@ def main():
 
             mean, median, std = sigma_clipped_stats(image, sigma=3.0)
             ap_area= CircularAperture((2,2), r=aperture)
-            sig3_limiting_mag = -2.5*np.log10(3*std*np.sqrt(ap_area.area())) + ZP_median
-            sig5_limiting_mag = -2.5*np.log10(5*std*np.sqrt(ap_area.area())) + ZP_median
+            sig3_limiting_mag = -2.5*np.log10(3*std*np.sqrt(ap_area.area)) + ZP_median
+            sig5_limiting_mag = -2.5*np.log10(5*std*np.sqrt(ap_area.area)) + ZP_median
 
             #######################
             #estimating the error via random apertures
             # print(std*np.sqrt(aperture_obj.area()))
             ran_x = 2*aperture + np.random.random(1000) * (image.shape[0]-4*aperture)
             ran_y = 2*aperture + np.random.random(1000) * (image.shape[0]-4*aperture)
-            apertures_error = CircularAperture((ran_x,ran_y), r=aperture)
+            ran_pos = [(ran_x[i], ran_y[i]) for i in range(len(ran_x))]
+            apertures_error = CircularAperture(ran_pos, r=aperture)
             phot_table = aperture_photometry(image, apertures_error)
             phot_table['aperture_sum'].info.format = '%.8g'  # for consistent table output
             random_extractions = Table(phot_table).to_pandas()

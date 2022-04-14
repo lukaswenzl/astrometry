@@ -159,7 +159,10 @@ def find_sources(image, vignette=3,vignette_rectangular=1., cutouts=None,sigma_t
     for col in sources.colnames:
         sources[col].info.format = '%.8g'  # for consistent table output
 
-    positions = (sources['xcentroid'], sources['ycentroid'])
+    #positions = (sources['xcentroid'], sources['ycentroid'])
+    xcenters = np.array(sources['xcentroid'])
+    ycenters = np.array(sources['ycentroid'])
+    positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
     apertures = CircularAperture(positions, r=4.)
     phot_table = aperture_photometry(image, apertures)
     for col in phot_table.colnames:
@@ -766,7 +769,11 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
     observation = find_sources(image, vignette,vignette_rectangular,cutouts, sigma_threshold_for_source_detection, FWHM=FWHM)
     #print(observation)
 
-    positions = (observation['xcenter'], observation['ycenter'])
+    #positions = (observation['xcenter'], observation['ycenter'])
+    xcenters = np.array(observation['xcenter'])
+    ycenters = np.array(observation['ycenter'])
+    positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
+    
     apertures = CircularAperture(positions, r=4.)
 
 
@@ -830,11 +837,12 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         catalog_data = catalog_data.nsmallest(400, "mag")
     #remove duplicates in catalog?
 
+    import pdb; pdb.set_trace()
     apertures_catalog = CircularAperture(wcsprm.s2p(catalog_data[["ra", "dec"]], 1)['pixcrd'], r=5.)
     #plotting what we have, I keep it in the detector field, world coordinates are more painfull to plot
     if(images):
         fig = plt.figure()
-        fig.canvas.set_window_title('Input for {}'.format(fits_image_filename))
+        fig.canvas.manager.set_window_title('Input for {}'.format(fits_image_filename))
         plt.xlabel("pixel x direction")
         plt.ylabel("pixel y direction")
         plt.title("Input - red: catalog sources, blue: detected sources in img")
@@ -951,7 +959,7 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
     #check final figure
     if(images):
         fig = plt.figure()
-        fig.canvas.set_window_title('Result for {}'.format(fits_image_filename))
+        fig.canvas.manager.set_window_title('Result for {}'.format(fits_image_filename))
         plt.xlabel("pixel x direction")
         plt.ylabel("pixel y direction")
         plt.title("Result - red: catalog sources, blue: detected sources in img")
