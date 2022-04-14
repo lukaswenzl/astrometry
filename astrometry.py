@@ -159,7 +159,7 @@ def find_sources(image, vignette=3,vignette_rectangular=1., cutouts=None,sigma_t
     for col in sources.colnames:
         sources[col].info.format = '%.8g'  # for consistent table output
 
-    #positions = (sources['xcentroid'], sources['ycentroid'])
+    #changed order of positions to [(x,y), (x,y),...] for compatibility with photutils 1.4
     xcenters = np.array(sources['xcentroid'])
     ycenters = np.array(sources['ycentroid'])
     positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
@@ -769,11 +769,10 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
     observation = find_sources(image, vignette,vignette_rectangular,cutouts, sigma_threshold_for_source_detection, FWHM=FWHM)
     #print(observation)
 
-    #positions = (observation['xcenter'], observation['ycenter'])
+    #changed order of positions to [(x,y), (x,y),...] for compatibility with photutils 1.4
     xcenters = np.array(observation['xcenter'])
     ycenters = np.array(observation['ycenter'])
     positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
-    
     apertures = CircularAperture(positions, r=4.)
 
 
@@ -837,7 +836,6 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         catalog_data = catalog_data.nsmallest(400, "mag")
     #remove duplicates in catalog?
 
-    import pdb; pdb.set_trace()
     apertures_catalog = CircularAperture(wcsprm.s2p(catalog_data[["ra", "dec"]], 1)['pixcrd'], r=5.)
     #plotting what we have, I keep it in the detector field, world coordinates are more painfull to plot
     if(images):
