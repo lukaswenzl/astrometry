@@ -1,5 +1,7 @@
 # Astrometry
 
+[![DOI](https://zenodo.org/badge/172559215.svg)](https://zenodo.org/badge/latestdoi/172559215)
+
 A simple python3 tool to quickly correct the rough astrometry given by a telescope for a fits image. For the calibration of the position Panstarrs Dr1, GAIA or 2MASS data can be used. The program considers scaling, rotation, reflection, and translation. To start with it needs a rough position from the fits header or specified as input parameters.
 
 general notes: If already present in the header wcs (World Coordinate System) information is used. If not the wcs is built from scratch. 
@@ -150,6 +152,11 @@ The result is a pdf image. It shows a cutout of the target. Above is specified i
 The literature values is 12.363+-0.01 mag for this source. Therefore the systematics from the calibration have to be considered for the error, but overall the result is consistent with the literature.
 
 
+## How to Cite
+  
+ If you find this code usefull for your research, please consider citing it in any resulting publications. Cite as:
+  
+  Lukas Wenzl. (2022). lukaswenzl/astrometry: Astrometry v1.5 (v1.5). Zenodo. https://doi.org/10.5281/zenodo.6462441
 
 ## Author
 
