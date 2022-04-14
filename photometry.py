@@ -85,7 +85,7 @@ def find_sources(image, aperture):
         sources[col].info.format = '%.8g'  # for consistent table output
     #print(sources)
 
-    #positions = (sources['xcentroid'], sources['ycentroid'])
+    #changed order of positions to [(x,y), (x,y),...] for compatibility with photutils 1.4
     xcenters = np.array(sources['xcentroid'])
     ycenters = np.array(sources['ycentroid'])
     positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
@@ -212,7 +212,7 @@ def main():
         observation = find_sources(image, aperture)
         #print(observation)
 
-        #positions = (observation['xcenter'], observation['ycenter'])
+        #changed order of positions to [(x,y), (x,y),...] for compatibility with photutils 1.4
         xcenters = np.array(observation['xcenter'])
         ycenters = np.array(observation['xcenter'])
         positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
