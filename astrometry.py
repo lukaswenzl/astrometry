@@ -395,7 +395,7 @@ def parseArguments():
     parser.add_argument("-filename_for_sources", "--filename_for_sources", help="Save the sky positions of the sources to file to calibrate another image with it. Set to the filename without extension. Default: not used", type=str, default=None)
 
     # Print version
-    parser.add_argument("--version", action="version", version='%%(prog)s - Version 1.3') #
+    parser.add_argument("--version", action="version", version='%%(prog)s - Version 1.5') #
     #changelog
     #version 0.0 proof of concept
     #version 0.1 alpha version
@@ -403,6 +403,7 @@ def parseArguments():
     #version 1.2 included option to not show images
     #version 1.3 improved support for high resolution images
     #version 1.4 bugfixes and ability to calibrate based on another image
+    #version 1.5 added compatibility with photutils v1.4
 
     # Parse arguments
     args = parser.parse_args()

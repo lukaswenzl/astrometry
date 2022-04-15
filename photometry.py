@@ -144,11 +144,12 @@ def parseArguments():
 
 
     # Print version
-    parser.add_argument("--version", action="version", version='%(prog)s - Version 0.2') #
+    parser.add_argument("--version", action="version", version='%(prog)s - Version 1.5') #
     #changelog
     #version 0.0 proof of concept
     #version 0.1 alpha version
     #version 0.2 bugfixes, 5sigma magnitue now more consistent and panstarrs data handling is more robust
+    #version 1.5 added compatibility with photutils v1.4 and bumped version number to match other files
 
 
     # Parse arguments
