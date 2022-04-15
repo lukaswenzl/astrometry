@@ -413,7 +413,7 @@ def parseArguments():
 
 def main():
     """Perform astrometry for the given file."""
-    print("Program version: 1.2")
+    print("Program version: 1.5")
     StartTime = datetime.now()
     args = parseArguments()
 
