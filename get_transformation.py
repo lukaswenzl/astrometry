@@ -581,7 +581,7 @@ def fine_transformation(observation, catalog, wcsprm, threshold=1, verbose=True,
     angle_offset = angle_offset[mask]
     scale_offset = scale_offset[mask]
 
-    rotation = np.mean(angle_offset)
+    rotation = -1*np.mean(angle_offset)
     scaling = np.e**(np.mean(scale_offset))
 
     rot = rotation_matrix(rotation)
