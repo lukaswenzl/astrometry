@@ -891,6 +891,7 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
                 #only allow rot and scaling for the last few tries
                 skip_rot_scale = False
             if(score> best_score):
+                print("fine transformation successfull - new best fit")
                 wcsprm = wcsprm_new
                 best_score = score
                 fine_transformation_success = True
