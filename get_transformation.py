@@ -457,7 +457,7 @@ def get_scaling_and_rotation(observation, catalog, wcsprm, scale_guessed, verbos
 def calculate_rms(observation, catalog, wcsprm):
     """Calculate the root mean square deviation of the astrometry fit"""
     #finding pixel scale
-    on_sky = wcsprm.p2s([[0,0],[1,1]], 0)["world"]
+    on_sky = wcsprm.p2s([[0,0],[1,1]], 1)["world"]
     px_scale = np.sqrt((on_sky[0,0]-on_sky[1,0])**2+(on_sky[0,1]-on_sky[1,1])**2)
     px_scale = px_scale*60*60 #in arcsec
     obs_x, obs_y, cat_x, cat_y, distances = find_matches(observation, catalog, wcsprm, threshold=3)

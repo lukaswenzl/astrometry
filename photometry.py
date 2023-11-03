@@ -205,7 +205,7 @@ def main():
         wcsprm = Wcsprm(hdr.tostring().encode('utf-8')) #everything else gave me errors with python 3
 
         #tranlating aperture into pixel:
-        on_sky = wcsprm.p2s([[0,0],[1,1]], 0)["world"]
+        on_sky = wcsprm.p2s([[0,0],[1,1]], 1)["world"]
         px_scale = np.sqrt((on_sky[0,0]-on_sky[1,0])**2+(on_sky[0,1]-on_sky[1,1])**2)
         px_scale = px_scale*60*60 #in arcsec
         aperture = args.aperture / px_scale  #aperture n pixel
