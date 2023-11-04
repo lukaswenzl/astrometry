@@ -162,6 +162,9 @@ def find_sources(image, vignette=3,vignette_rectangular=1., cutouts=None,sigma_t
     #changed order of positions to [(x,y), (x,y),...] for compatibility with photutils 1.4
     xcenters = np.array(sources['xcentroid'])
     ycenters = np.array(sources['ycentroid'])
+    print("Changed convention to start with idx 1 for pixels")
+    xcenters = xcenters +1.
+    ycenters = ycenters +1.
     positions = [(xcenters[i], ycenters[i]) for i in range(len(xcenters))]
     apertures = CircularAperture(positions, r=4.)
     phot_table = aperture_photometry(image, apertures)
@@ -574,7 +577,7 @@ def main():
         # if(not PIXSCALE_UNCLEAR):
         #     if(wcsprm.crpix[0] < 0 or wcsprm.crpix[1] < 0 or wcsprm.crpix[0] > image.shape[0] or wcsprm.crpix[1] > image.shape[1] ):
         #         print("central value outside of the image, moving it to the center")
-        #         coord_radec = wcsprm.p2s([[image.shape[0]/2, image.shape[1]/2]], 0)["world"][0]
+        #         coord_radec = wcsprm.p2s([[image.shape[0]/2, image.shape[1]/2]], 1)["world"][0]
         #         coord = SkyCoord(coord_radec[0], coord_radec[1], unit=(u.deg, u.deg), frame="icrs")
         #         #print(wcsprm)
         #
@@ -702,7 +705,7 @@ def main():
         # else:
         #     text = "clockwise"
         # print("Rotation of WCS by an angle of {} deg ".format(rotation_angle)+text)
-        # old_central_pixel = wcsprm_original.s2p([wcsprm.crval], 0)["pixcrd"][0]
+        # old_central_pixel = wcsprm_original.s2p([wcsprm.crval], 1)["pixcrd"][0]
         # print("x offset: {} px, y offset: {} px ".format(wcsprm.crpix[0]- old_central_pixel[0], wcsprm.crpix[1]- old_central_pixel[1]))
         #
         #
@@ -796,7 +799,7 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         if(wcsprm.crpix[0] < 0 or wcsprm.crpix[1] < 0 or wcsprm.crpix[0] > image.shape[0] or wcsprm.crpix[1] > image.shape[1] ):
             if(not silent):
                 print("central value outside of the image, moving it to the center")
-            coord_radec = wcsprm.p2s([[image.shape[0]/2, image.shape[1]/2]], 0)["world"][0]
+            coord_radec = wcsprm.p2s([[image.shape[0]/2, image.shape[1]/2]], 1)["world"][0]
             coord = SkyCoord(coord_radec[0], coord_radec[1], unit=(u.deg, u.deg), frame="icrs")
             #print(wcsprm)
 
@@ -845,7 +848,8 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         plt.xlabel("pixel x direction")
         plt.ylabel("pixel y direction")
         plt.title("Input - red: catalog sources, blue: detected sources in img")
-        plt.imshow(image,cmap='Greys', origin='lower', norm=LogNorm())
+        #plt.imshow(image,cmap='Greys', origin='lower', norm=LogNorm())
+        plt.imshow(image,cmap='Greys', origin="lower", norm=LogNorm() , extent=[0.5, image.shape[1]+0.5, 0.5, image.shape[0]+0.5])
         apertures.plot(color='blue', lw=1.5, alpha=0.5)
         apertures_catalog.plot(color='red', lw=1.5, alpha=0.5)
 
@@ -951,19 +955,24 @@ def astrometry_script(filename, catalog="PS", rotation_scaling=True, xy_transfor
         text = "clockwise"
     if(not silent):
         print("Rotation of WCS by an angle of {} deg ".format(rotation_angle)+text)
-    old_central_pixel = wcsprm_original.s2p([wcsprm.crval], 0)["pixcrd"][0]
+    old_central_pixel = wcsprm_original.s2p([wcsprm.crval], 1)["pixcrd"][0]
     if(not silent):
         print("x offset: {} px, y offset: {} px ".format(wcsprm.crpix[0]- old_central_pixel[0], wcsprm.crpix[1]- old_central_pixel[1]))
 
+    if(not silent):
+        print("new WCS:")
+        print(WCS(wcsprm.to_header()))
 
     #check final figure
     if(images):
+        print("Plotting final figue. Forcing origin to be (1,1) to be consistent with ds9 and fits file conventions.")
         fig = plt.figure()
         fig.canvas.manager.set_window_title('Result for {}'.format(fits_image_filename))
         plt.xlabel("pixel x direction")
         plt.ylabel("pixel y direction")
-        plt.title("Result - red: catalog sources, blue: detected sources in img")
-        plt.imshow(image,cmap='Greys', origin='lower', norm=LogNorm())
+        plt.title("Result - red: catalog sources, blue: detected sources in img \n (Note origin = (1,1))")
+        print(image.shape)
+        plt.imshow(image,cmap='Greys', origin="lower", norm=LogNorm() , extent=[0.5, image.shape[1]+0.5, 0.5, image.shape[0]+0.5])
         apertures.plot(color='blue', lw=1.5, alpha=0.5)
         #apertures_catalog = CircularAperture(wcs.wcs_world2pix(catalog_data[["ra", "dec"]], 1), r=5.)
         apertures_catalog = CircularAperture(wcsprm.s2p(catalog_data[["ra", "dec"]], 1)['pixcrd'], r=5.)
